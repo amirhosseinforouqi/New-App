@@ -50,7 +50,9 @@ export function ChangePasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    // See the note in login-form.tsx: method="post" stops a pre-hydration
+    // submit from putting passwords in the query string.
+    <form method="post" onSubmit={handleSubmit} className="space-y-4">
       {error && (
         <div className="alert alert-error" role="alert">
           {error}

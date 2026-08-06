@@ -41,7 +41,12 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    // method="post" matters even though the submit is handled in JS: before
+    // React hydrates (slow connection, a script error, a bot), a click still
+    // submits the form natively. A form with no method defaults to GET, which
+    // would put the password in the URL — and therefore in browser history,
+    // the Referer header and access logs. POST keeps it in the body.
+    <form method="post" onSubmit={handleSubmit} className="space-y-4">
       {error && (
         <div className="alert alert-error" role="alert">
           {error}

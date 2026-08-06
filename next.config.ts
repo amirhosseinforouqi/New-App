@@ -25,24 +25,10 @@ const config: NextConfig = {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
           },
-          {
-            // No third-party scripts, no inline event handlers, no framing.
-            // 'unsafe-inline' on style-src is required by Next's injected
-            // critical CSS; scripts do not get the same allowance.
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self'",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data:",
-              "font-src 'self'",
-              "connect-src 'self'",
-              "frame-ancestors 'none'",
-              "form-action 'self'",
-              "base-uri 'self'",
-              "object-src 'none'",
-            ].join('; '),
-          },
+          // Content-Security-Policy is NOT set here. It needs a per-request
+          // nonce so Next's inline bootstrap and RSC payload scripts are
+          // allowed to run — a static `script-src 'self'` blocks them and the
+          // app never hydrates. See src/middleware.ts.
         ],
       },
     ];

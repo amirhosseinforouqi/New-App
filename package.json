@@ -16,7 +16,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "worker:mail": "tsx src/workers/inbound-mail.ts",
-    "worker:agent": "tsx src/workers/agent-worker.ts"
+    "worker:agent": "tsx src/workers/agent-worker.ts",
+    "db:demo": "tsx scripts/demo-seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
