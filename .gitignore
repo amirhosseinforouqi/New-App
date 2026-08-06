@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+secrets/
+*.pem
+*-sa.json
+service-account*.json
+
+# Runtime
+.DS_Store
+npm-debug.log*
+yarn-error.log*
+coverage/
+.vercel

@@ -1,0 +1,92 @@
+# UWA Portal — full stack.
+#
+#   docker compose up -d db
+#   docker compose run --rm migrate
+#   docker compose run --rm web npm run db:seed -- "you@your-domain.ca" "Your Name"
+#   docker compose up -d
+#
+# Provider-agnostic on purpose: this same file runs on a VPS in Toronto, a
+# Canadian cloud VM, or your laptop. Nothing here is tied to a specific host —
+# which is what keeps the PIPEDA data-residency decision yours to make by
+# choosing where the machine lives.
+
+name: uwa
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: uwa
+      POSTGRES_USER: uwa_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Deterministic collation so index behaviour matches across machines.
+      POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # Not published to the host by default. Uncomment only for local debugging;
+    # an exposed Postgres port is how client data leaves the building.
+    # ports:
+    #   - '127.0.0.1:5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U uwa_owner -d uwa']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build: .
+    profiles: ['tools']
+    env_file: [.env]
+    environment:
+      DATABASE_MIGRATION_URL: postgres://uwa_owner:${POSTGRES_PASSWORD}@db:5432/uwa
+    command: ['npx', 'tsx', 'scripts/migrate.ts']
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://uwa_app:${UWA_APP_PASSWORD:?set UWA_APP_PASSWORD in .env}@db:5432/uwa
+    ports:
+      - '3000:3000'
+    volumes:
+      # Service account key, mounted read-only. Never bake it into the image.
+      - ./secrets:/app/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Watches the broker's mailbox and creates client profiles from new enquiries.
+  mail-worker:
+    build: .
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://uwa_app:${UWA_APP_PASSWORD}@db:5432/uwa
+    command: ['npx', 'tsx', 'src/workers/inbound-mail.ts']
+    volumes:
+      - ./secrets:/app/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Executes queued agent skills.
+  agent-worker:
+    build: .
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://uwa_app:${UWA_APP_PASSWORD}@db:5432/uwa
+    command: ['npx', 'tsx', 'src/workers/agent-worker.ts']
+    volumes:
+      - ./secrets:/app/secrets:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

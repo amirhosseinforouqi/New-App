@@ -1,0 +1,231 @@
+@import 'tailwindcss';
+
+/*
+ * UWA design tokens.
+ *
+ * Visual benchmark: Finmo and Blend. The shared characteristics worth copying
+ * are restraint, not decoration — near-white surfaces, one ink colour doing
+ * most of the work, a single accent reserved for the current step and primary
+ * actions, and generous line height. A mortgage client is often anxious and
+ * frequently on a phone; the interface should read as calm and legible, not
+ * as a product demo.
+ *
+ * Colour is never the only signal. Every status carries a label and, where it
+ * matters, an icon — so the document states remain distinguishable to someone
+ * with colour vision deficiency.
+ */
+
+@theme {
+  /* Ink */
+  --color-ink-900: #12161f;
+  --color-ink-700: #2b3243;
+  --color-ink-500: #5a6377;
+  --color-ink-400: #7d8595;
+  --color-ink-300: #a8aebb;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-canvas: #f6f7f9;
+  --color-raised: #fbfcfd;
+
+  /* Lines */
+  --color-line: #e4e7ec;
+  --color-line-strong: #d0d5dd;
+
+  /* Accent — deep slate blue. Professional, not fintech-purple. */
+  --color-accent-700: #1e3a5f;
+  --color-accent-600: #27507f;
+  --color-accent-500: #33659e;
+  --color-accent-100: #e8eef6;
+
+  /* Status */
+  --color-ok-600: #17754b;
+  --color-ok-100: #e3f5ec;
+  --color-warn-600: #9a6212;
+  --color-warn-100: #fdf2dd;
+  --color-danger-600: #b3261e;
+  --color-danger-100: #fdeceb;
+  --color-info-600: #2c5aa0;
+  --color-info-100: #e8effa;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --radius-card: 12px;
+  --radius-control: 8px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible focus everywhere. Removing this to "clean up" the design makes the
+     portal unusable by keyboard, which for a document-heavy workflow is a real
+     accessibility failure, not a cosmetic one. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--color-accent-100);
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: var(--radius-control);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      opacity 120ms ease;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--color-accent-700);
+    color: #fff;
+    border: 1px solid var(--color-accent-700);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-accent-600);
+  }
+
+  .btn-secondary {
+    background: var(--color-surface);
+    color: var(--color-ink-700);
+    border: 1px solid var(--color-line-strong);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-raised);
+  }
+
+  .btn-danger {
+    background: var(--color-surface);
+    color: var(--color-danger-600);
+    border: 1px solid var(--color-line-strong);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-danger-100);
+  }
+
+  .input {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    font-size: 0.9375rem;
+    color: var(--color-ink-900);
+  }
+
+  .input::placeholder {
+    color: var(--color-ink-300);
+  }
+
+  .label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-ink-700);
+    margin-bottom: 0.375rem;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1875rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1rem;
+    white-space: nowrap;
+  }
+
+  .badge-requested {
+    background: var(--color-canvas);
+    color: var(--color-ink-500);
+  }
+  .badge-in_review {
+    background: var(--color-info-100);
+    color: var(--color-info-600);
+  }
+  .badge-needs_attention {
+    background: var(--color-warn-100);
+    color: var(--color-warn-600);
+  }
+  .badge-approved {
+    background: var(--color-ok-100);
+    color: var(--color-ok-600);
+  }
+
+  .field-hint {
+    font-size: 0.8125rem;
+    color: var(--color-ink-500);
+    margin-top: 0.375rem;
+  }
+
+  .alert {
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-control);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+  .alert-error {
+    background: var(--color-danger-100);
+    color: var(--color-danger-600);
+  }
+  .alert-ok {
+    background: var(--color-ok-100);
+    color: var(--color-ok-600);
+  }
+  .alert-warn {
+    background: var(--color-warn-100);
+    color: var(--color-warn-600);
+  }
+}
+
+/* Respect users who have asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
