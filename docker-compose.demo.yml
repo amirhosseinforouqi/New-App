@@ -1,0 +1,64 @@
+# UWA — one-command demo.
+#
+#   docker compose -f docker-compose.demo.yml up
+#
+# Then open http://localhost:3000/login. Credentials are printed in the logs.
+#
+# This is for LOOKING AT the portal, not for running a brokerage:
+#   - passwords are fixed and public
+#   - migrations and seeding run automatically on boot
+#   - no Google Drive, SMTP or Anthropic credentials
+#
+# Document downloads will fail (the demo records have no bytes behind them in
+# Drive) and uploads need real Drive credentials. Everything else — login, the
+# timeline, the checklist, messaging, stage control, document review — works.
+#
+# For a real deployment use docker-compose.yml and docs/DEPLOYMENT.md.
+
+name: uwa-demo
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: uwa
+      POSTGRES_USER: uwa_owner
+      POSTGRES_PASSWORD: demopw
+      POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U uwa_owner -d uwa']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    # No volume: the demo is disposable, and a stale volume from a previous
+    # schema version is a confusing first experience.
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  app:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_MIGRATION_URL: postgres://uwa_owner:demopw@db:5432/uwa
+      DATABASE_URL: postgres://uwa_app:demopw@db:5432/uwa
+      APP_URL: http://localhost:3000
+      APP_NAME: UWA Mortgage Portal
+      NODE_ENV: development
+      # Fixed, publicly-known value — fine for a throwaway demo, never for real
+      # use. docs/DEPLOYMENT.md shows how to generate a proper one.
+      SESSION_SECRET: ZGVtby1vbmx5LXNlc3Npb24tc2VjcmV0LW5vdC1mb3ItcHJvZHVjdGlvbi11c2Uh
+    volumes:
+      - .:/app
+      # Keep the container's node_modules separate from the host's, so a macOS
+      # or Windows host does not shove incompatible native binaries into Linux.
+      - demo-node-modules:/app/node_modules
+    ports:
+      - '3000:3000'
+    command: >
+      sh -c "npm install --no-audit --no-fund && sh scripts/demo-entrypoint.sh"
+
+volumes:
+  demo-node-modules:

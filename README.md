@@ -55,10 +55,21 @@ roadmap.
 
 ---
 
-## See it running in 5 minutes
+## See it running — one command
 
-To look at the portal before configuring Google Drive, email or an Anthropic
-key. Needs Docker and Node 22.
+To look at the portal before configuring Google Drive, email or an Anthropic key.
+Needs Docker only.
+
+```bash
+docker compose -f docker-compose.demo.yml up
+```
+
+Postgres starts, migrations apply, demo data seeds, and the app comes up at
+<http://localhost:3000/login>. Tear it down with
+`docker compose -f docker-compose.demo.yml down`.
+
+<details>
+<summary>Prefer to run it directly, without Docker for the app?</summary>
 
 ```bash
 git clone <your-repo> uwa && cd uwa
@@ -96,6 +107,8 @@ bytes behind them in Drive, so those links 502. Uploads need real Drive
 credentials; emails and agent skills need SMTP and an Anthropic key.
 
 Tear down with `docker rm -f uwa-db`.
+
+</details>
 
 ---
 
