@@ -55,6 +55,50 @@ roadmap.
 
 ---
 
+## See it running in 5 minutes
+
+To look at the portal before configuring Google Drive, email or an Anthropic
+key. Needs Docker and Node 22.
+
+```bash
+git clone <your-repo> uwa && cd uwa
+npm install
+
+# 1. Database
+docker run -d --name uwa-db -p 5432:5432 \
+  -e POSTGRES_DB=uwa -e POSTGRES_USER=uwa_owner -e POSTGRES_PASSWORD=devpw \
+  postgres:16-alpine
+
+export DATABASE_MIGRATION_URL="postgres://uwa_owner:devpw@localhost:5432/uwa"
+export DATABASE_URL="postgres://uwa_app:devpw@localhost:5432/uwa"
+
+npm run db:migrate
+docker exec uwa-db psql -U uwa_owner -d uwa -c "ALTER ROLE uwa_app WITH PASSWORD 'devpw';"
+
+# 2. Demo data — one broker, two clients at different stages
+npm run db:demo
+
+# 3. Run
+export SESSION_SECRET="$(node -e "console.log(require('crypto').randomBytes(48).toString('base64'))")"
+npm run dev
+```
+
+Open <http://localhost:3000/login>:
+
+| Sign in as | Username | Password |
+|---|---|---|
+| Client, mid-file | `pramanathan` | `demo-portal-2026` |
+| Client, new enquiry | `mdelacroixwebb` | `demo-portal-2026` |
+| Broker | `demo.broker@example.test` | `demo-portal-2026` |
+
+Everything works except document downloads — the demo document records have no
+bytes behind them in Drive, so those links 502. Uploads need real Drive
+credentials; emails and agent skills need SMTP and an Anthropic key.
+
+Tear down with `docker rm -f uwa-db`.
+
+---
+
 ## Quick start
 
 ```bash
