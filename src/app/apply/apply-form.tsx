@@ -74,6 +74,10 @@ const COPY = {
     en: 'Your information is stored in Canada and is never shared without your consent.',
     fr: 'Vos renseignements sont conservés au Canada et ne sont jamais partagés sans votre consentement.',
   },
+  justLooking: {
+    en: 'Not ready yet? Try the calculators',
+    fr: 'Pas encore prêt? Essayez les calculatrices',
+  },
 } satisfies Record<string, Localised>;
 
 interface Props {
@@ -237,7 +241,16 @@ export function ApplyForm({ referralCode, initialLocale }: Props) {
           })}
         </div>
 
-        <p className="field-hint mt-6">{t(COPY.privacy)}</p>
+        <p className="mt-6">
+          <a
+            href={`/calculators${locale === 'fr' ? '?lang=fr' : ''}`}
+            className="text-[13px] font-semibold text-[var(--color-accent-600)] hover:underline"
+          >
+            {t(COPY.justLooking)} →
+          </a>
+        </p>
+
+        <p className="field-hint mt-4">{t(COPY.privacy)}</p>
       </div>
     );
   }
