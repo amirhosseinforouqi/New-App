@@ -13,6 +13,7 @@ import { desc, eq, sql } from 'drizzle-orm';
 import { asBroker } from '@/db';
 import { clients, documentRequests, documents, messages } from '@/db/schema';
 import { AppHeader } from '@/components/app-header';
+import { BrokerNav } from '@/components/broker-nav';
 import { NewClientForm } from './new-client-form';
 import { getCurrentUser } from '@/lib/auth/session';
 import { env } from '@/lib/env';
@@ -73,7 +74,12 @@ export default async function BrokerPage() {
 
   return (
     <div className="min-h-dvh">
-      <AppHeader appName={env.appName} userName={user.fullName} subtitle="Broker workspace" />
+      <AppHeader
+        appName={env.appName}
+        userName={user.fullName}
+        subtitle="Broker workspace"
+        nav={<BrokerNav />}
+      />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">

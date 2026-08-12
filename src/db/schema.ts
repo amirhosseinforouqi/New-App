@@ -76,6 +76,7 @@ export const clients = pgTable('clients', {
 export const clientStageHistory = pgTable('client_stage_history', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id').notNull(),
+  dealId: uuid('deal_id'),
   stageKey: text('stage_key').notNull(),
   note: text('note'),
   advancedBy: uuid('advanced_by'),
@@ -85,6 +86,7 @@ export const clientStageHistory = pgTable('client_stage_history', {
 export const documentRequests = pgTable('document_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id').notNull(),
+  dealId: uuid('deal_id'),
   label: text('label').notNull(),
   description: text('description'),
   category: text('category').notNull().default('other'),
@@ -100,6 +102,7 @@ export const documentRequests = pgTable('document_requests', {
 export const documents = pgTable('documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id').notNull(),
+  dealId: uuid('deal_id'),
   requestId: uuid('request_id'),
   driveFileId: text('drive_file_id').notNull(),
   fileName: text('file_name').notNull(),
@@ -119,6 +122,7 @@ export const documents = pgTable('documents', {
 export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id').notNull(),
+  dealId: uuid('deal_id'),
   senderType: actorType('sender_type').notNull(),
   senderId: uuid('sender_id'),
   body: text('body').notNull(),
@@ -140,6 +144,7 @@ export const sessions = pgTable('sessions', {
 export const agentRuns = pgTable('agent_runs', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id'),
+  dealId: uuid('deal_id'),
   skillKey: text('skill_key').notNull(),
   trigger: text('trigger').notNull(),
   status: agentRunStatus('status').notNull().default('queued'),
