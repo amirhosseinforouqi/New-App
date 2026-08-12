@@ -9,7 +9,9 @@
 import {
   bigint,
   boolean,
+  date,
   integer,
+  numeric,
   jsonb,
   pgEnum,
   pgTable,
@@ -185,3 +187,167 @@ export type DocumentRequest = typeof documentRequests.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type AgentRun = typeof agentRuns.$inferSelect;
 export type PipelineStage = typeof pipelineStages.$inferSelect;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deals, intake and compliance — mirrors drizzle/0003_deals_and_intake.sql
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const dealStatus = pgEnum('deal_status', ['active', 'archived', 'funded', 'lost']);
+
+export const deals = pgTable('deals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull(),
+  reference: text('reference').notNull(),
+  dealType: text('deal_type').notNull().default('purchase'),
+  stageKey: text('stage_key').notNull().default('inquiry'),
+  status: dealStatus('status').notNull().default('active'),
+  assignedTo: uuid('assigned_to'),
+  lockedAt: timestamp('locked_at', { withTimezone: true }),
+  lockedBy: uuid('locked_by'),
+
+  propertyAddress: text('property_address'),
+  propertyCity: text('property_city'),
+  propertyProvince: text('property_province'),
+  propertyPostalCode: text('property_postal_code'),
+  propertyType: text('property_type'),
+  occupancy: text('occupancy'),
+  purchasePrice: numeric('purchase_price'),
+  propertyValue: numeric('property_value'),
+
+  downPayment: numeric('down_payment'),
+  mortgageAmount: numeric('mortgage_amount'),
+  interestRate: numeric('interest_rate'),
+  amortizationYears: integer('amortization_years'),
+  termYears: integer('term_years'),
+  paymentFrequency: text('payment_frequency').default('monthly'),
+
+  annualPropertyTax: numeric('annual_property_tax'),
+  monthlyHeat: numeric('monthly_heat'),
+  monthlyCondoFees: numeric('monthly_condo_fees'),
+
+  existingBalance: numeric('existing_balance'),
+  existingLender: text('existing_lender'),
+  maturityDate: date('maturity_date'),
+
+  referralCode: text('referral_code'),
+  leadSource: text('lead_source'),
+
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  fundedAt: timestamp('funded_at', { withTimezone: true }),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+});
+
+export const dealBorrowers = pgTable('deal_borrowers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id').notNull(),
+  clientId: uuid('client_id').notNull(),
+  role: text('role').notNull().default('co_borrower'),
+  invitedAt: timestamp('invited_at', { withTimezone: true }).notNull().defaultNow(),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+});
+
+export const borrowerIncomes = pgTable('borrower_incomes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id').notNull(),
+  clientId: uuid('client_id').notNull(),
+  employmentType: text('employment_type').notNull().default('salaried'),
+  employerName: text('employer_name'),
+  occupation: text('occupation'),
+  yearsAtJob: numeric('years_at_job'),
+  annualIncome: numeric('annual_income').notNull().default('0'),
+  priorYearIncome: numeric('prior_year_income'),
+  isPrimary: boolean('is_primary').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const borrowerLiabilities = pgTable('borrower_liabilities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id').notNull(),
+  clientId: uuid('client_id'),
+  liabilityType: text('liability_type').notNull().default('other'),
+  description: text('description'),
+  balance: numeric('balance').notNull().default('0'),
+  monthlyPayment: numeric('monthly_payment').notNull().default('0'),
+  includeInTds: boolean('include_in_tds').notNull().default(true),
+  payoutOnClosing: boolean('payout_on_closing').notNull().default(false),
+  source: actorType('source').notNull().default('client'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const applications = pgTable('applications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id'),
+  clientId: uuid('client_id'),
+  tier: text('tier').notNull().default('short'),
+  locale: text('locale').notNull().default('en'),
+  status: text('status').notNull().default('submitted'),
+  answers: jsonb('answers').notNull().default({}),
+  referralCode: text('referral_code'),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }),
+});
+
+export const referralSources = pgTable('referral_sources', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  brokerId: uuid('broker_id'),
+  code: text('code').notNull(),
+  label: text('label').notNull(),
+  medium: text('medium').notNull().default('other'),
+  isActive: boolean('is_active').notNull().default(true),
+  visits: integer('visits').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const complianceTemplates = pgTable('compliance_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  brokerId: uuid('broker_id'),
+  name: text('name').notNull(),
+  dealType: text('deal_type'),
+  isDefault: boolean('is_default').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const complianceTemplateItems = pgTable('compliance_template_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  templateId: uuid('template_id').notNull(),
+  label: text('label').notNull(),
+  description: text('description'),
+  requiresDocument: boolean('requires_document').notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+});
+
+export const dealComplianceItems = pgTable('deal_compliance_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id').notNull(),
+  label: text('label').notNull(),
+  description: text('description'),
+  requiresDocument: boolean('requires_document').notNull().default(false),
+  status: text('status').notNull().default('pending'),
+  documentId: uuid('document_id'),
+  note: text('note'),
+  completedBy: uuid('completed_by'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const recoveryCodes = pgTable('recovery_codes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userType: actorType('user_type').notNull(),
+  userId: uuid('user_id').notNull(),
+  codeHash: text('code_hash').notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Deal = typeof deals.$inferSelect;
+export type Application = typeof applications.$inferSelect;
+export type BorrowerIncome = typeof borrowerIncomes.$inferSelect;
+export type BorrowerLiability = typeof borrowerLiabilities.$inferSelect;
+export type ComplianceItem = typeof dealComplianceItems.$inferSelect;
+export type ReferralSource = typeof referralSources.$inferSelect;

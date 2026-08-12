@@ -16,6 +16,14 @@ taken from each, and what deliberately was not, is documented in
 Drive folder, a tailored document checklist, and a credentials email — from your own
 address, on your own domain. You can also add clients by hand; it is the same code path.
 
+**The public application at `/apply`** is bilingual (English/French), adaptive, and comes in
+three lengths — a two-minute estimate, a working application, or the full file. Questions
+appear and disappear based on what has already been answered: a buyer is never asked their
+current lender, a condo buyer is asked their condo fees, a self-employed borrower is asked
+for two years. Submitting it creates the client, the deal, their income and liability
+records, and a separate independent login for any co-borrower. `?ref=CODE` on the link
+attributes the lead; `?lang=fr` opens it in French.
+
 **The client dashboard** has three things and nothing else:
 
 - **Application pathway** — a six-stage timeline from Inquiry to Funded. Stages ahead are
@@ -173,7 +181,7 @@ and that identity does not leak between pooled connections.
 ## Layout
 
 ```
-drizzle/            schema (0001) and RLS policies (0002)
+drizzle/            schema (0001), RLS policies (0002), deals + intake (0003)
 src/
   app/              pages and API routes
   components/       timeline, document panel, message thread
@@ -182,6 +190,8 @@ src/
     agent/          skill contract, registry, runner, built-in skills
     auth/           password hashing, sessions, username generation
     drive/          Google Drive client and operations
+    finance/        Canadian mortgage maths — payments, GDS/TDS/LTV, land transfer tax
+    intake/         the public application: question definitions, mapping, submission
     mail/           SMTP sending, IMAP inbound, templates
     pipeline/       stage definitions and transition rules
   workers/          inbound-mail and agent worker processes
@@ -217,4 +227,13 @@ belongs in your privacy notice. The agent layer is entirely optional — leave
 
 `docs/RESEARCH.md` has the full table with reasoning. The headlines: no two-factor
 authentication, no lender submission (Filogix/Velocity), no e-signature, no credit bureau
-pull, no online application form, and no automated reminder cadence.
+pull, and no automated reminder cadence.
+
+Several of those are not engineering work — they are commercial relationships. A credit
+bureau pull needs an Equifax or TransUnion membership; bank statement aggregation needs a
+Flinks or Plaid contract; Filogix import needs a licensed API; certified e-signature needs
+a vendor. The database is shaped to receive all of them —
+`borrower_liabilities` takes a `source` so bureau-parsed debts sit alongside self-declared
+ones, and every ratio in `src/lib/finance` recalculates unchanged — but none of them can be
+built without the account behind them, and faking a regulated one is worse than not having
+it.

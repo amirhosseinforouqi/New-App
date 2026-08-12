@@ -22,6 +22,7 @@ export type AuditAction =
   | 'client.suspended'
   | 'client.reactivated'
   | 'stage.advanced'
+  | 'application.submitted'
   | 'document.uploaded'
   | 'document.reviewed'
   | 'document.deleted'

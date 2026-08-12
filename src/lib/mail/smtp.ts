@@ -53,9 +53,13 @@ export interface SendResult {
  * retried from there.
  */
 export async function sendEmail(to: string, body: EmailBody): Promise<SendResult> {
-  const config = smtpConfig();
-
   try {
+    // Inside the try deliberately: reading the config throws when SMTP is not
+    // configured, and that must arrive as a failed result like any other send
+    // failure. Outside, it escapes and takes the caller down with it — which is
+    // how a client ends up created but with no file attached to them.
+    const config = smtpConfig();
+
     const info = await getTransporter().sendMail({
       from: { name: config.fromName, address: config.fromAddress },
       to,
