@@ -20,6 +20,7 @@ import {
 } from '@/db/schema';
 import Link from 'next/link';
 import { AppHeader } from '@/components/app-header';
+import { InstallPrompt } from '@/components/install-prompt';
 import { DocumentPanel } from '@/components/document-panel';
 import { MessageThread } from '@/components/message-thread';
 import { StageTimeline } from '@/components/stage-timeline';
@@ -166,6 +167,8 @@ export default async function DashboardPage({
               : 'Here is where your application stands.'}
           </p>
         </div>
+
+        <InstallPrompt />
 
         {/* Deal switcher — only when there is a choice to make. */}
         {data.myDeals.length > 1 && (
