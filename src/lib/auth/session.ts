@@ -46,8 +46,9 @@ export type AuthenticatedUser =
  * `mfaSatisfied: false` issues a HALF-AUTHENTICATED session: the password was
  * correct but the second factor has not been presented. It is deliberately a
  * real session rather than a separate short-lived token, so the pending state
- * survives a page reload — but `requireClient`/`requireBroker` refuse it, so it
- * can reach nothing except the verification screen and sign-out.
+ * survives a page reload — but `getCurrentUser` refuses it unless the caller
+ * explicitly opts in, so it can reach nothing except the verification screen
+ * and sign-out.
  */
 export async function createSession(
   userType: 'client' | 'broker',
@@ -84,10 +85,23 @@ export async function createSession(
 /**
  * Resolve the current session, or null.
  *
- * Also enforces client status: a suspended or archived client holding a valid
- * cookie is refused, so revoking access does not require hunting down sessions.
+ * Enforces client status: a suspended or archived client holding a valid cookie
+ * is refused, so revoking access does not require hunting down sessions.
+ *
+ * AND, by default, refuses a session whose second factor is still outstanding.
+ * That default is the whole security property. Pages call this directly rather
+ * than going through requireBroker/requireClient, so putting the MFA check only
+ * in those helpers left every page reachable with a password alone — which is
+ * exactly what a browser test caught: a half-authenticated session loaded
+ * /broker/deals with a 200.
+ *
+ * Callers that legitimately need the pending user — the verification screen and
+ * its endpoint — must ask for it explicitly. Opt-in is the right shape here: a
+ * new page written next year is protected because it did nothing special.
  */
-export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
+export async function getCurrentUser(
+  options: { allowPendingMfa?: boolean } = {},
+): Promise<AuthenticatedUser | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -100,6 +114,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
       .limit(1);
 
     if (!session) return null;
+    if (!session.mfaSatisfied && !options.allowPendingMfa) return null;
 
     if (session.userType === 'broker') {
       const [broker] = await db
@@ -147,11 +162,10 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
 /**
  * Throw-if-absent helpers for route handlers.
  *
- * Both refuse a half-authenticated session. That refusal lives HERE rather than
- * in middleware on purpose: middleware guards paths, and a path someone forgets
- * to list is silently unguarded. Every authenticated route already calls one of
- * these, so putting the check at the choke point means a new route is protected
- * by default instead of by remembering.
+ * The MFA refusal is inherited from `getCurrentUser`, which returns null for a
+ * half-authenticated session. The explicit re-check below is belt and braces:
+ * it costs nothing and states the requirement at the point a reader looks for
+ * it.
  */
 export async function requireClient() {
   const user = await getCurrentUser();
@@ -180,7 +194,7 @@ export async function requireBroker() {
  * factor. Only the verification screen and its endpoint may use this.
  */
 export async function getPendingMfaUser(): Promise<AuthenticatedUser | null> {
-  const user = await getCurrentUser();
+  const user = await getCurrentUser({ allowPendingMfa: true });
   return user && !user.mfaSatisfied ? user : null;
 }
 

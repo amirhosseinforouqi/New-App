@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const LINKS = [
   { href: '/broker/deals', label: 'Deals' },
   { href: '/broker', label: 'Clients' },
+  { href: '/settings/security', label: 'Security' },
 ];
 
 export function BrokerNav() {

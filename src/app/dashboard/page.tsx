@@ -11,6 +11,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 
 import { asClient, asSystem } from '@/db';
 import { brokers, clientStageHistory, documentRequests, documents, messages } from '@/db/schema';
+import Link from 'next/link';
 import { AppHeader } from '@/components/app-header';
 import { DocumentPanel } from '@/components/document-panel';
 import { MessageThread } from '@/components/message-thread';
@@ -82,7 +83,19 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-dvh">
-      <AppHeader appName={env.appName} userName={user.fullName} subtitle="Client portal" />
+      <AppHeader
+        appName={env.appName}
+        userName={user.fullName}
+        subtitle="Client portal"
+        nav={
+          <Link
+            href="/settings/security"
+            className="rounded-[var(--radius-control)] px-3 py-1.5 text-[13px] font-semibold text-[var(--color-ink-500)] transition-colors hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink-900)]"
+          >
+            Security
+          </Link>
+        }
+      />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="mb-6">
