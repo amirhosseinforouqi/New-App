@@ -247,17 +247,41 @@ belongs in your privacy notice. The agent layer is entirely optional — leave
 
 ---
 
-## Not built
+## State of the platform
 
-`docs/RESEARCH.md` has the full table with reasoning. The headlines: no two-factor
-authentication, no lender submission (Filogix/Velocity), no e-signature, no credit bureau
-pull, and no automated reminder cadence.
+**Built and working.** Bilingual tiered intake with conditional branching · deals as
+first-class objects with co-borrowers on independent logins · Canadian mortgage maths
+(semi-annual compounding, GDS/TDS/LTV at the stress-test rate, default insurance, land
+transfer tax) · Kanban pipeline with drag, assignment, application lock and archiving ·
+lender product matching with reasons for every rejection · submission-readiness gating ·
+FINTRAC compliance checklists expanded per borrower · cross-sell screening · commission
+splitting to the cent · two-factor authentication (TOTP + recovery codes) · automated
+document reminders with an SMS adapter · renewal mining · public calculators · public API
+with signed webhooks · Google Drive document handling · the Claude agent layer.
 
-Several of those are not engineering work — they are commercial relationships. A credit
-bureau pull needs an Equifax or TransUnion membership; bank statement aggregation needs a
-Flinks or Plaid contract; Filogix import needs a licensed API; certified e-signature needs
-a vendor. The database is shaped to receive all of them —
-`borrower_liabilities` takes a `source` so bureau-parsed debts sit alongside self-declared
-ones, and every ratio in `src/lib/finance` recalculates unchanged — but none of them can be
-built without the account behind them, and faking a regulated one is worse than not having
-it.
+**Schema and engine exist, no interface yet.** Electronic consent capture (the `consents`
+table hashes the document so what was agreed to is provable, but nothing renders the signing
+screen) · commission entry and the team performance dashboard · team invitations and roles ·
+deal copying · referral link generation and its attribution report · down-payment source
+auditing · a client dashboard that switches between multiple deals.
+
+Each of those is a route and a form on top of work that is already done and tested. They are
+listed here rather than implied as finished.
+
+**Blocked on a commercial relationship, not on engineering.** A credit bureau pull needs an
+Equifax or TransUnion membership. Bank statement aggregation needs Flinks or Plaid. CRA tax
+packages need Represent a Client. Filogix import needs a licensed API. Certified e-signature
+needs a vendor. Two-way lender submission and a database of 3,000+ lender policies need those
+lender relationships and a data subscription. SMS needs a Twilio account — the adapter is
+written and switches on with three environment variables.
+
+The database is shaped to receive all of them: `borrower_liabilities.source` lets
+bureau-parsed debts sit beside self-declared ones, `external_connections` records a borrower
+authorising a provider, `lender_submissions.method` already distinguishes an export from an
+API call, and every ratio in `src/lib/finance` recalculates unchanged. None can be built
+without the account behind it, and faking a regulated feature in a mortgage application is
+worse than not having it — a portal that displays a credit score it never pulled is a
+compliance problem, not a demo.
+
+`docs/RESEARCH.md` has the full comparison against Finmo, Velocity, Lendesk and BluMortgage.
+`docs/PLATFORM.md` has the architecture, schema and end-to-end flow.
