@@ -504,6 +504,59 @@ async function main() {
       [closedId, closedDealId, brokerId],
     );
 
+    // ── Lender products ──────────────────────────────────────────────────────
+    // A small, deliberately varied table so the matching engine has something
+    // to rank AND something to reject — a demo where every product fits shows
+    // none of the actual behaviour.
+    await db.query(`DELETE FROM lenders WHERE name LIKE 'Demo %'`);
+
+    const lenderRows: Array<[string, string]> = [
+      ['Demo Trust', 'a_lender'],
+      ['Demo Prime Bank', 'a_lender'],
+      ['Demo Alternative Capital', 'b_lender'],
+    ];
+
+    const lenderIds: Record<string, string> = {};
+    for (const [name, type] of lenderRows) {
+      const row = await db.query<{ id: string }>(
+        `INSERT INTO lenders (name, lender_type, submission_email)
+         VALUES ($1, $2, $3) RETURNING id`,
+        [name, type, `submissions@${name.toLowerCase().replace(/\s+/g, '')}.test`],
+      );
+      lenderIds[name] = row.rows[0]!.id;
+    }
+
+    const products: Array<[string, string, number, number, number | null, number | null, number | null, boolean, boolean]> = [
+      // lender, product, rate, term, minCredit, maxLtv, maxAmort, insured, selfEmployed
+      ['Demo Prime Bank', '5-year fixed', 4.69, 5, 680, 80, 30, false, true],
+      ['Demo Prime Bank', '5-year fixed (insured)', 4.44, 5, 650, 95, 25, true, true],
+      ['Demo Trust', '5-year variable', 4.95, 5, 660, 80, 30, true, true],
+      ['Demo Trust', '3-year fixed', 4.79, 3, 600, 80, 30, true, true],
+      ['Demo Alternative Capital', 'Alt-A 2-year', 6.49, 2, null, 75, 30, false, true],
+    ];
+
+    for (const [lender, name, rate, term, minCredit, maxLtv, maxAmort, insured, selfEmployed] of products) {
+      await db.query(
+        `INSERT INTO lender_products
+           (lender_id, name, rate_type, term_years, posted_rate, min_credit_score,
+            max_ltv, max_gds, max_tds, max_amortization, allows_insured, allows_uninsured,
+            allows_self_employed)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 39, 44, $8, $9, true, $10)`,
+        [
+          lenderIds[lender],
+          name,
+          name.includes('variable') ? 'variable' : 'fixed',
+          term,
+          rate,
+          minCredit,
+          maxLtv,
+          maxAmort,
+          insured,
+          selfEmployed,
+        ],
+      );
+    }
+
     await db.query('COMMIT');
 
     console.info(`

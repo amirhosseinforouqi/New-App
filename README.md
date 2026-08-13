@@ -55,14 +55,17 @@ route or page.
 | Each client sees only their own data | **Postgres row-level security**, not application checks. Every query runs in a transaction bound to the caller's identity. Verified by 12 integration tests that query with no `WHERE` clause at all. |
 | Authenticated document URLs | No public Drive links exist. Downloads proxy through a route that re-checks ownership per request and returns `404` — not `403` — for someone else's file. |
 | Data in Canada | Postgres runs wherever you deploy it; put the machine in Canada. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) § Data residency for what PIPEDA actually requires, which is narrower than commonly assumed. |
+| Two-factor authentication | TOTP (RFC 6238) for brokers and clients, with hashed single-use recovery codes and replay protection. |
 
 Also: session tokens stored only as SHA-256, `httpOnly`/`sameSite`/`secure` cookies,
 account lockout after five failed logins, constant-time login regardless of whether the
 account exists, a strict Content-Security-Policy, and an append-only audit log.
 
-**Known gap: there is no two-factor authentication.** Lendesk and Finmo both have it and it
-is the most significant thing missing against them. It is the top item on the security
-roadmap.
+**Two-factor authentication** is available to both brokers and clients: TOTP implemented
+against RFC 6238 and verified against the RFC's own test vectors, ten single-use recovery
+codes hashed like passwords, and single-use enforcement so an observed code cannot be
+replayed inside its window. A session that has passed the password but not the second factor
+reaches nothing but the verification screen.
 
 ---
 

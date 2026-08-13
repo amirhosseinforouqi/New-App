@@ -6,11 +6,18 @@ import { AppHeader } from '@/components/app-header';
 import { BrokerNav } from '@/components/broker-nav';
 import { getCurrentUser } from '@/lib/auth/session';
 import { dealRatios, getDealDetail, num } from '@/lib/deals/queries';
+import { ensureComplianceChecklist, loadWorkspace } from '@/lib/deals/workspace';
 import { env } from '@/lib/env';
 import { calculateInsurance, minimumDownPayment } from '@/lib/finance/mortgage';
 import { calculateLandTransferTax, type Province } from '@/lib/finance/land-transfer-tax';
 import { getStage, STAGES } from '@/lib/pipeline/stages';
 import { RatioPanel } from './ratio-panel';
+import {
+  CompliancePanel,
+  CrossSellPanel,
+  LenderPanel,
+  ReadinessPanel,
+} from './workspace-panels';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +48,22 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const detail = await asBroker(user.id, async (db) => getDealDetail(db, id));
   if (!detail) notFound();
+
+  // Created on first view rather than at deal creation: a deal opened from an
+  // EZ-tier lead has no borrowers yet, and a per-borrower checklist built
+  // before the borrowers exist is the wrong checklist.
+  const workspace = await asBroker(user.id, async (db) => {
+    await ensureComplianceChecklist(
+      db,
+      detail.deal.id,
+      detail.deal.dealType,
+      detail.borrowers.map((borrower) => ({
+        clientId: borrower.clientId,
+        fullName: borrower.fullName,
+      })),
+    );
+    return loadWorkspace(db, detail);
+  });
 
   const { deal, borrowers, incomes, liabilities } = detail;
   const stage = getStage(deal.stageKey);
@@ -117,12 +140,16 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
 
         <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
           <div className="space-y-5">
+            <ReadinessPanel readiness={workspace.readiness} />
+
             <RatioPanel
               stressed={stressed}
               contract={contract}
               blockedBy={blockedBy}
               rateIsAssumed={rateIsAssumed}
             />
+
+            <LenderPanel matches={workspace.matches} />
 
             <section className="card p-5">
               <h2 className="text-sm font-semibold">The mortgage</h2>
@@ -295,6 +322,18 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                 Each borrower signs in separately and sees only their own income and liabilities.
               </p>
             </section>
+
+            <CompliancePanel
+              items={workspace.compliance}
+              borrowers={borrowers.map((borrower) => ({
+                clientId: borrower.clientId,
+                fullName: borrower.fullName,
+              }))}
+              identityByClient={workspace.identityByClient}
+              consentByClient={workspace.consentByClient}
+            />
+
+            <CrossSellPanel suggestions={workspace.crossSell} />
 
             {deal.notes && (
               <section className="card p-5">
