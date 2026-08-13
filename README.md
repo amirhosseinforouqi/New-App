@@ -8,6 +8,9 @@ Built from a study of Finmo, Newton Velocity, Lendesk, BluMortgage and Blend —
 taken from each, and what deliberately was not, is documented in
 [`docs/RESEARCH.md`](docs/RESEARCH.md).
 
+**Architecture, stack reasoning, schema and the full lead-to-funded flow (with diagrams):**
+[`docs/PLATFORM.md`](docs/PLATFORM.md). **Public API and webhooks:** [`docs/API.md`](docs/API.md).
+
 ---
 
 ## What it does
@@ -215,7 +218,7 @@ src/
   workers/          inbound-mail and agent worker processes
 scripts/            migrate, seed
 tests/              unit + RLS integration
-docs/               setup and architecture
+docs/               PLATFORM (architecture + flows), API, setup guides, research
 ```
 
 ---
