@@ -49,6 +49,15 @@ export interface SubmitIntakeInput {
   referralCode?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
+  /**
+   * Where this came from. Defaults to the public form.
+   *
+   * The API passes its own value so a lead posted by a website or a Zap is
+   * distinguishable in the pipeline from one typed into `/apply` — otherwise
+   * every attribution report says `intake_form` and the integration is
+   * invisible.
+   */
+  leadSource?: string;
 }
 
 export interface SubmitIntakeResult {
@@ -124,7 +133,7 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
         existingLender: text(answers, 'existingLender'),
         maturityDate: text(answers, 'maturityDate'),
         referralCode: input.referralCode ?? null,
-        leadSource: 'intake_form',
+        leadSource: input.leadSource ?? 'intake_form',
         notes: text(answers, 'notes'),
       })
       .returning({ id: deals.id, reference: deals.reference });

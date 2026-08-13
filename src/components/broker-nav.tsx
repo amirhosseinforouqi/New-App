@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/broker/deals', label: 'Deals' },
   { href: '/broker', label: 'Clients' },
   { href: '/settings/security', label: 'Security' },
+  { href: '/settings/integrations', label: 'Integrations' },
 ];
 
 export function BrokerNav() {

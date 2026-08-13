@@ -24,6 +24,7 @@ import { eq } from 'drizzle-orm';
 
 import { asSystem } from '@/db';
 import { brokers } from '@/db/schema';
+import { attemptDelivery, pendingDeliveries } from '@/lib/api/webhooks';
 import { runLifecyclePass } from '@/lib/notify/lifecycle';
 import { runReminderPass } from '@/lib/notify/reminders';
 import { isSmsConfigured } from '@/lib/notify/sms';
@@ -57,8 +58,31 @@ async function primaryBrokerName(): Promise<string> {
   });
 }
 
+/**
+ * Webhooks are drained on EVERY tick, not only during sending hours.
+ * They go to machines, not people, and an integration that only receives
+ * events between 9 and 7 on weekdays is not an integration.
+ */
+async function drainWebhooks(): Promise<void> {
+  const pending = await asSystem((db) => pendingDeliveries(db));
+  if (pending.length === 0) return;
+
+  let delivered = 0;
+  for (const delivery of pending) {
+    const outcome = await asSystem((db) => attemptDelivery(db, delivery));
+    if (outcome.ok) delivered += 1;
+    else if (!outcome.willRetry) {
+      console.error('[scheduler] webhook gave up', outcome);
+    }
+  }
+
+  console.info('[scheduler] webhooks', { attempted: pending.length, delivered });
+}
+
 async function tick(): Promise<void> {
   const now = new Date();
+
+  await drainWebhooks();
 
   if (!withinSendingHours(now)) return;
 
