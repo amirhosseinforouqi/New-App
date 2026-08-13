@@ -41,9 +41,9 @@ attributes the lead; `?lang=fr` opens it in French.
 agent's activity per client.
 
 **The agent layer** runs mortgage processing skills: checklist generation on client
-creation, document classification on upload, income verification on demand. Three reference
-skills ship; the integration hooks are built for you to add your own without touching any
-route or page.
+creation, document classification on upload, income verification on demand, and a 90-day
+down-payment source audit on a bank statement. Four reference skills ship; the integration
+hooks are built for you to add your own without touching any route or page.
 
 ---
 
@@ -52,7 +52,7 @@ route or page.
 | Requirement | How |
 |---|---|
 | Hashed passwords only | scrypt (N=65536, r=8, p=1) with per-password salts, versioned hash format, transparent upgrade on login. No plaintext anywhere. |
-| Each client sees only their own data | **Postgres row-level security**, not application checks. Every query runs in a transaction bound to the caller's identity. Verified by 12 integration tests that query with no `WHERE` clause at all. |
+| Each client sees only their own data | **Postgres row-level security**, not application checks. Every query runs in a transaction bound to the caller's identity. Verified by 19 integration tests that query with no `WHERE` clause at all. |
 | Authenticated document URLs | No public Drive links exist. Downloads proxy through a route that re-checks ownership per request and returns `404` — not `403` — for someone else's file. |
 | Data in Canada | Postgres runs wherever you deploy it; put the machine in Canada. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) § Data residency for what PIPEDA actually requires, which is narrower than commonly assumed. |
 | Two-factor authentication | TOTP (RFC 6238) for brokers and clients, with hashed single-use recovery codes and replay protection. |
@@ -96,16 +96,21 @@ Postgres starts, migrations apply, demo data seeds, and the app comes up at
 <http://localhost:3000/login> (in Codespaces, the forwarded `3000` port instead). Tear it
 down with `docker compose -f docker-compose.demo.yml down`.
 
-| Sign in as | Username | Password |
+| Sign in as | Username | What it shows |
 |---|---|---|
-| Client, mid-file | `pramanathan` | `demo-portal-2026` |
-| Client, new enquiry | `mdelacroixwebb` | `demo-portal-2026` |
-| Broker | `demo.broker@example.test` | `demo-portal-2026` |
+| Broker (owner) | `demo.broker@example.test` | Everything — pipeline, compliance, team, reports |
+| Client | `pramanathan` | Purchase under review, documents to send, application locked |
+| Client | `mdelacroixwebb` | Refinance, new enquiry, debts paid out on closing |
+| Client | `dokonkwo` | Purchase with a co-borrower, conditional approval |
+| Co-borrower | `sokonkwo` | The co-borrower's OWN login — same deal, not the other's finances |
+| Client | `evasquez` | Renewal, funded, with a maturity date driving renewal outreach |
 
-The deals board is at **Broker → Deals**, and the public bilingual application — the thing a
-prospective borrower would actually fill in — is at `/apply` (unauthenticated, linked from
-the board's "Application link" button). The calculators at `/calculators` need no login
-either.
+Password for all of them: `demo-portal-2026`
+
+Worth opening in this order: **Deals** for the pipeline, then any deal for the ratio panel,
+lender matching and the compliance checklist; **Brokerage** for attribution, commissions and
+the team; and `/apply` for the public bilingual application a borrower would actually fill in.
+`/apply` and `/calculators` need no login at all.
 
 Everything works except document downloads — the demo document records have no bytes behind
 them in Drive, so those links 502. Uploads need real Drive credentials; emails and agent
@@ -129,7 +134,7 @@ export DATABASE_URL="postgres://uwa_app:devpw@localhost:5432/uwa"
 npm run db:migrate
 docker exec uwa-db psql -U uwa_owner -d uwa -c "ALTER ROLE uwa_app WITH PASSWORD 'devpw';"
 
-# 2. Demo data — one broker, two clients at different stages
+# 2. Demo data — a broker, five clients across every stage, and lender products
 npm run db:demo
 
 # 3. Run
@@ -249,31 +254,28 @@ belongs in your privacy notice. The agent layer is entirely optional — leave
 
 ## State of the platform
 
-**Built and working.** Bilingual tiered intake with conditional branching · deals as
-first-class objects with co-borrowers on independent logins · Canadian mortgage maths
-(semi-annual compounding, GDS/TDS/LTV at the stress-test rate, default insurance, land
-transfer tax) · Kanban pipeline with drag, assignment, application lock and archiving ·
-lender product matching with reasons for every rejection · submission-readiness gating ·
-FINTRAC compliance checklists expanded per borrower · cross-sell screening · commission
-splitting to the cent · two-factor authentication (TOTP + recovery codes) · automated
-document reminders with an SMS adapter · renewal mining · public calculators · public API
-with signed webhooks · Google Drive document handling · the Claude agent layer.
+**Built and working.**
 
-**Schema and engine exist, no interface yet.** Electronic consent capture (the `consents`
-table hashes the document so what was agreed to is provable, but nothing renders the signing
-screen) · commission entry and the team performance dashboard · team invitations and roles ·
-deal copying · referral link generation and its attribution report · down-payment source
-auditing · a client dashboard that switches between multiple deals.
+| | |
+|---|---|
+| Borrower | Bilingual tiered intake with conditional branching · secure document portal · persistent messaging · live stage tracker · multi-deal switcher · electronic consent signing with hashed documents · payment, affordability and closing-cost calculators · two-factor authentication · installable app (PWA) |
+| Broker | Kanban deals pipeline with drag, assignment, lock, archive and copy · GDS/TDS/LTV at the stress-test rate · lender product matching with a reason for every rejection · submission-readiness gating · FINTRAC compliance checklists with per-borrower identity records · cross-sell screening · commission splitting to the cent · team roles and invitations · referral links with attribution and conversion |
+| Automation | Inbound email → client profile · Claude document classification · checklist generation · down-payment statement auditing · document reminders (email, plus an SMS adapter) · renewal mining · signed webhooks |
+| Integration | Public API (`/api/v1`) with scoped keys · webhooks for eight events · CSV import of a legacy back catalogue · Google Drive document storage |
 
-Each of those is a route and a form on top of work that is already done and tested. They are
-listed here rather than implied as finished.
+236 tests, including a row-level-security suite that queries with no `WHERE` clause and
+asserts the database still returns only the caller's rows.
 
 **Blocked on a commercial relationship, not on engineering.** A credit bureau pull needs an
 Equifax or TransUnion membership. Bank statement aggregation needs Flinks or Plaid. CRA tax
-packages need Represent a Client. Filogix import needs a licensed API. Certified e-signature
-needs a vendor. Two-way lender submission and a database of 3,000+ lender policies need those
-lender relationships and a data subscription. SMS needs a Twilio account — the adapter is
-written and switches on with three environment variables.
+packages need Represent a Client. A Filogix connector needs a licensed API from Finastra — the
+CSV importer is the honest substitute, and it says so on the page. Certified e-signature needs
+a vendor; what is built is an audit-trailed electronic signature, which is the normal standard
+for consent forms but not for a notarised instrument. Two-way lender submission and a database
+of 3,000+ lender policies need those lender relationships and a data subscription. SMS needs a
+Twilio account — the adapter is written and switches on with three environment variables.
+Native iOS and Android builds need App Store and Play accounts; the PWA installs to the home
+screen and launches standalone today.
 
 The database is shaped to receive all of them: `borrower_liabilities.source` lets
 bureau-parsed debts sit beside self-declared ones, `external_connections` records a borrower
@@ -284,4 +286,5 @@ worse than not having it — a portal that displays a credit score it never pull
 compliance problem, not a demo.
 
 `docs/RESEARCH.md` has the full comparison against Finmo, Velocity, Lendesk and BluMortgage.
-`docs/PLATFORM.md` has the architecture, schema and end-to-end flow.
+`docs/PLATFORM.md` has the architecture, schema and end-to-end flow. `docs/API.md` documents
+the public API.

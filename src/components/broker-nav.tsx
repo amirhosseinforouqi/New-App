@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/broker/reports', label: 'Brokerage' },
   { href: '/settings/security', label: 'Security' },
   { href: '/settings/integrations', label: 'Integrations' },
+  { href: '/settings/import', label: 'Import' },
 ];
 
 export function BrokerNav() {
