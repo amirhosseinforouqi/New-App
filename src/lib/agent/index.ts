@@ -13,6 +13,7 @@
 
 import { registerSkill, listSkills } from './registry';
 import { classifyDocumentSkill } from './skills/classify-document';
+import { verifyDownPaymentSkill } from './skills/verify-down-payment';
 import { generateChecklistSkill } from './skills/generate-checklist';
 import { incomeVerificationSkill } from './skills/income-verification';
 
@@ -24,6 +25,7 @@ export function registerBuiltInSkills(): void {
 
   registerSkill(generateChecklistSkill);
   registerSkill(classifyDocumentSkill);
+  registerSkill(verifyDownPaymentSkill);
   registerSkill(incomeVerificationSkill);
 
   // ── Register your own skills below ──────────────────────────────────────

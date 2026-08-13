@@ -40,6 +40,7 @@ export type AuditAction =
   | 'team.invited'
   | 'team.updated'
   | 'commission.recorded'
+  | 'deals.imported'
   | 'deal.assigned'
   | 'deal.locked'
   | 'deal.unlocked'

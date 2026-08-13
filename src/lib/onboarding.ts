@@ -38,6 +38,14 @@ export interface CreateClientInput {
   brokerId?: string | null;
   /** Who initiated this — an inbound email, or a broker in the admin UI. */
   source: 'inbound_email' | 'broker';
+  /**
+   * Send the credentials email. Default true.
+   *
+   * The bulk importer sets this false. Migrating a brokerage's back catalogue
+   * must not mail hundreds of people a password unannounced at 2am — the
+   * broker reissues credentials per client when they are ready for them.
+   */
+  sendCredentials?: boolean;
 }
 
 export interface CreateClientResult {
@@ -201,6 +209,21 @@ export async function createClientProfile(
   }
 
   // ── Step 5: credentials email ──────────────────────────────────────────────
+  if (input.sendCredentials === false) {
+    return {
+      clientId: created.id,
+      username: created.username,
+      temporaryPassword: created.temporaryPassword,
+      created: true,
+      driveFolderId,
+      emailSent: false,
+      warnings: [
+        ...warnings,
+        'No credentials email was sent. Reissue them from the client page when you are ready.',
+      ],
+    };
+  }
+
   const mail = await sendEmail(
     email,
     welcomeEmail({
