@@ -1,11 +1,14 @@
 /**
- * Drizzle schema — mirrors drizzle/0001_init.sql.
+ * Drizzle schema — mirrors the migrations in drizzle/.
  *
- * The SQL file is the source of truth (it also carries the RLS policies, which
- * Drizzle cannot express). This file exists for type-safe queries; if you
- * change one, change both.
+ * The SQL files are the source of truth (they also carry the RLS policies,
+ * which Drizzle cannot express). This file exists for type-safe queries; if you
+ * change one, change both. A column that exists in SQL but not here fails at
+ * compile time the moment anything selects it, which is the intended
+ * behaviour — it has caught the drift twice already.
  */
 
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -110,6 +113,10 @@ export const documentRequests = pgTable('document_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id').notNull(),
   dealId: uuid('deal_id'),
+  dueAt: timestamp('due_at', { withTimezone: true }),
+  reminderCount: integer('reminder_count').notNull().default(0),
+  lastReminderAt: timestamp('last_reminder_at', { withTimezone: true }),
+  remindersEnabled: boolean('reminders_enabled').notNull().default(true),
   label: text('label').notNull(),
   description: text('description'),
   category: text('category').notNull().default('other'),
@@ -380,3 +387,253 @@ export type BorrowerIncome = typeof borrowerIncomes.$inferSelect;
 export type BorrowerLiability = typeof borrowerLiabilities.$inferSelect;
 export type ComplianceItem = typeof dealComplianceItems.$inferSelect;
 export type ReferralSource = typeof referralSources.$inferSelect;
+
+// ── Platform tables (migration 0004) ────────────────────────────────────────
+
+export const reminderChannel = pgEnum('reminder_channel', ['email', 'sms']);
+export const submissionMethod = pgEnum('submission_method', ['export', 'email', 'api']);
+
+export const reminderLog = pgTable('reminder_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull(),
+  dealId: uuid('deal_id'),
+  channel: reminderChannel('channel').notNull(),
+  destination: text('destination').notNull(),
+  subject: text('subject'),
+  body: text('body').notNull(),
+  requestIds: uuid('request_ids').array().notNull().default(sql`'{}'`),
+  succeeded: boolean('succeeded').notNull(),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const consents = pgTable('consents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull(),
+  dealId: uuid('deal_id'),
+  kind: text('kind').notNull(),
+  version: text('version').notNull(),
+  documentTitle: text('document_title').notNull(),
+  documentBody: text('document_body').notNull(),
+  documentHash: text('document_hash').notNull(),
+  signedName: text('signed_name').notNull(),
+  signedAt: timestamp('signed_at', { withTimezone: true }).notNull().defaultNow(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const lenders = pgTable('lenders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  lenderType: text('lender_type').notNull().default('a_lender'),
+  submissionEmail: text('submission_email'),
+  submissionUrl: text('submission_url'),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const lenderProducts = pgTable('lender_products', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  lenderId: uuid('lender_id').notNull(),
+  name: text('name').notNull(),
+  rateType: text('rate_type').notNull().default('fixed'),
+  termYears: numeric('term_years').notNull().default('5'),
+  postedRate: numeric('posted_rate').notNull(),
+  minCreditScore: integer('min_credit_score'),
+  maxLtv: numeric('max_ltv'),
+  maxGds: numeric('max_gds'),
+  maxTds: numeric('max_tds'),
+  maxAmortization: integer('max_amortization'),
+  minLoanAmount: numeric('min_loan_amount'),
+  maxLoanAmount: numeric('max_loan_amount'),
+  allowsInsured: boolean('allows_insured').notNull().default(true),
+  allowsUninsured: boolean('allows_uninsured').notNull().default(true),
+  allowsRental: boolean('allows_rental').notNull().default(true),
+  allowsSelfEmployed: boolean('allows_self_employed').notNull().default(true),
+  allowedProvinces: text('allowed_provinces').array(),
+  allowedDealTypes: text('allowed_deal_types').array(),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const scenarios = pgTable('scenarios', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id').notNull(),
+  name: text('name').notNull(),
+  productIds: uuid('product_ids').array().notNull().default(sql`'{}'`),
+  snapshot: jsonb('snapshot').notNull().default({}),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const lenderSubmissions = pgTable('lender_submissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id').notNull(),
+  lenderId: uuid('lender_id'),
+  productId: uuid('product_id'),
+  method: submissionMethod('method').notNull().default('export'),
+  status: text('status').notNull().default('submitted'),
+  payload: jsonb('payload').notNull().default({}),
+  response: text('response'),
+  submittedBy: uuid('submitted_by'),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const dealCommissions = pgTable('deal_commissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id').notNull(),
+  lenderId: uuid('lender_id'),
+  fundedAmount: numeric('funded_amount').notNull().default('0'),
+  findersFeePercent: numeric('finders_fee_percent').notNull().default('0'),
+  volumeBonus: numeric('volume_bonus').notNull().default('0'),
+  totalCommission: numeric('total_commission').notNull().default('0'),
+  status: text('status').notNull().default('pending'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const commissionSplits = pgTable('commission_splits', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  commissionId: uuid('commission_id').notNull(),
+  brokerId: uuid('broker_id'),
+  payeeName: text('payee_name').notNull(),
+  percent: numeric('percent').notNull().default('0'),
+  amount: numeric('amount').notNull().default('0'),
+  role: text('role').notNull().default('agent'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const crossSellOpportunities = pgTable('cross_sell_opportunities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id').notNull(),
+  clientId: uuid('client_id').notNull(),
+  productKey: text('product_key').notNull(),
+  rationale: text('rationale').notNull(),
+  priority: integer('priority').notNull().default(0),
+  status: text('status').notNull().default('suggested'),
+  dismissedReason: text('dismissed_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const apiKeys = pgTable('api_keys', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  brokerId: uuid('broker_id'),
+  name: text('name').notNull(),
+  keyPrefix: text('key_prefix').notNull(),
+  keyHash: text('key_hash').notNull(),
+  scopes: text('scopes').array().notNull().default(sql`'{read}'`),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const webhooks = pgTable('webhooks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  brokerId: uuid('broker_id'),
+  url: text('url').notNull(),
+  events: text('events').array().notNull().default(sql`'{}'`),
+  secret: text('secret').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const webhookDeliveries = pgTable('webhook_deliveries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  webhookId: uuid('webhook_id').notNull(),
+  event: text('event').notNull(),
+  payload: jsonb('payload').notNull(),
+  statusCode: integer('status_code'),
+  error: text('error'),
+  attempts: integer('attempts').notNull().default(0),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const lifecycleTouches = pgTable('lifecycle_touches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull(),
+  dealId: uuid('deal_id'),
+  campaign: text('campaign').notNull(),
+  channel: reminderChannel('channel').notNull().default('email'),
+  succeeded: boolean('succeeded').notNull().default(true),
+  detail: text('detail'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const identityVerifications = pgTable('identity_verifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull(),
+  dealId: uuid('deal_id'),
+  method: text('method').notNull(),
+  documentType: text('document_type'),
+  documentNumber: text('document_number'),
+  issuingJurisdiction: text('issuing_jurisdiction'),
+  documentExpiry: date('document_expiry'),
+  verifiedBy: uuid('verified_by'),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull().defaultNow(),
+  pepScreened: boolean('pep_screened').notNull().default(false),
+  pepResult: text('pep_result'),
+  pepScreenedAt: timestamp('pep_screened_at', { withTimezone: true }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const downPaymentSources = pgTable('down_payment_sources', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  dealId: uuid('deal_id').notNull(),
+  clientId: uuid('client_id'),
+  documentId: uuid('document_id'),
+  sourceType: text('source_type').notNull().default('savings'),
+  institution: text('institution'),
+  amount: numeric('amount').notNull().default('0'),
+  asOfDate: date('as_of_date'),
+  isVerified: boolean('is_verified').notNull().default(false),
+  flagged: boolean('flagged').notNull().default(false),
+  flagReason: text('flag_reason'),
+  source: actorType('source').notNull().default('broker'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const externalConnections = pgTable('external_connections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull(),
+  dealId: uuid('deal_id'),
+  kind: text('kind').notNull(),
+  provider: text('provider').notNull(),
+  status: text('status').notNull().default('unavailable'),
+  externalRef: text('external_ref'),
+  requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  detail: text('detail'),
+});
+
+export const pushSubscriptions = pgTable('push_subscriptions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull(),
+  endpoint: text('endpoint').notNull(),
+  p256dh: text('p256dh').notNull(),
+  auth: text('auth').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+});
+
+export const validationRules = pgTable('validation_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  brokerId: uuid('broker_id'),
+  name: text('name').notNull(),
+  ruleKey: text('rule_key').notNull(),
+  severity: text('severity').notNull().default('blocking'),
+  dealType: text('deal_type'),
+  config: jsonb('config').notNull().default({}),
+  isActive: boolean('is_active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

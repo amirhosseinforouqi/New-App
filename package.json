@@ -2,7 +2,7 @@
   "name": "uwa-portal",
   "version": "1.0.0",
   "private": true,
-  "description": "UWA — secure mortgage client portal with Google Drive document vault, application pathway tracker, direct messaging, and AI agent skill hooks.",
+  "description": "UWA \u2014 secure mortgage client portal with Google Drive document vault, application pathway tracker, direct messaging, and AI agent skill hooks.",
   "engines": {
     "node": ">=22"
   },
@@ -17,7 +17,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "worker:mail": "tsx src/workers/inbound-mail.ts",
     "worker:agent": "tsx src/workers/agent-worker.ts",
-    "db:demo": "tsx scripts/demo-seed.ts"
+    "db:demo": "tsx scripts/demo-seed.ts",
+    "worker:scheduler": "tsx src/workers/scheduler.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

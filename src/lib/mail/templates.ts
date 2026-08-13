@@ -221,3 +221,122 @@ ${params.brokerName}`;
 
   return { subject: 'New message about your mortgage application', text, html };
 }
+
+/**
+ * The automated chase for outstanding documents.
+ *
+ * The tone escalates across the three attempts but never becomes a threat —
+ * this goes to someone who is trying to buy a house and is probably already
+ * anxious. The third and final message says out loud that it is the last one,
+ * so silence afterwards is not read as the file having quietly died.
+ */
+export function documentReminderEmail(params: {
+  fullName: string;
+  labels: string[];
+  attempt: number;
+  brokerName: string;
+  portalUrl: string;
+}): EmailBody {
+  const firstName = params.fullName.trim().split(/\s+/)[0] ?? params.fullName;
+  const count = params.labels.length;
+  const noun = count === 1 ? 'document' : 'documents';
+
+  const opener =
+    params.attempt === 1
+      ? `Just a nudge — there ${count === 1 ? 'is' : 'are'} still ${count} ${noun} outstanding on your application.`
+      : params.attempt === 2
+        ? `Following up on the ${noun} we still need. Your file cannot move to the lender until ${count === 1 ? 'it arrives' : 'they arrive'}.`
+        : `Last automated reminder about ${count === 1 ? 'this document' : 'these documents'}. After this I will follow up personally rather than by email.`;
+
+  const closer =
+    params.attempt >= 3
+      ? 'If something here is difficult to get hold of, reply and tell me — there is almost always another way.'
+      : 'If anything is hard to find, just reply to this email and I will help.';
+
+  const list = params.labels.map((item) => `  • ${item}`).join('\n');
+
+  const text = `Hi ${firstName},
+
+${opener}
+
+${list}
+
+Upload here: ${params.portalUrl}
+
+${closer}
+
+${params.brokerName}`;
+
+  const html = layout(`
+    <p style="${P}">Hi ${escapeHtml(firstName)},</p>
+    <p style="${P}">${escapeHtml(opener)}</p>
+    <ul style="margin:0 0 20px 0;padding-left:20px;font-size:15px;line-height:26px;color:#1a1f2b;">
+      ${params.labels.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+    </ul>
+    <p style="margin:0 0 24px 0;">
+      <a href="${params.portalUrl}" style="display:inline-block;background:#1a1f2b;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">Upload documents</a>
+    </p>
+    <p style="${P}">${escapeHtml(closer)}</p>
+    <p style="${P}">${escapeHtml(params.brokerName)}</p>
+  `);
+
+  const subject =
+    params.attempt >= 3
+      ? `Final reminder: ${count} ${noun} still needed`
+      : `Reminder: ${count} ${noun} still needed for your mortgage`;
+
+  return { subject, text, html };
+}
+
+/**
+ * Renewal mining — sent when a mortgage on file approaches maturity.
+ *
+ * Deliberately not a rate advertisement. It states the date, the penalty
+ * window, and offers a conversation, because a borrower who feels sold to at
+ * renewal goes back to their bank.
+ */
+export function renewalOutreachEmail(params: {
+  fullName: string;
+  maturityDate: string;
+  daysAway: number;
+  brokerName: string;
+}): EmailBody {
+  const firstName = params.fullName.trim().split(/\s+/)[0] ?? params.fullName;
+
+  const when =
+    params.daysAway < 0
+      ? `Your mortgage matured on ${params.maturityDate}.`
+      : `Your mortgage matures on ${params.maturityDate}, about ${params.daysAway} days from now.`;
+
+  const why =
+    params.daysAway < 0
+      ? 'If nothing was arranged, you may have rolled onto your lender’s posted rate, which is usually well above what is available.'
+      : 'Most lenders let you lock a new rate a few months ahead without a penalty, so this is the window where you have the most options.';
+
+  const text = `Hi ${firstName},
+
+${when}
+
+${why}
+
+No obligation at all — if you would like me to check what is available and compare it against your lender's renewal offer, just reply and I will put the numbers together.
+
+${params.brokerName}`;
+
+  const html = layout(`
+    <p style="${P}">Hi ${escapeHtml(firstName)},</p>
+    <p style="${P}">${escapeHtml(when)}</p>
+    <p style="${P}">${escapeHtml(why)}</p>
+    <p style="${P}">No obligation at all — if you would like me to check what is available and compare it against your lender’s renewal offer, just reply and I will put the numbers together.</p>
+    <p style="${P}">${escapeHtml(params.brokerName)}</p>
+  `);
+
+  return {
+    subject:
+      params.daysAway < 0
+        ? 'Your mortgage has matured — worth a quick look'
+        : 'Your mortgage renewal is coming up',
+    text,
+    html,
+  };
+}

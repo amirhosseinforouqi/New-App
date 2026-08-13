@@ -17,7 +17,7 @@ function required(name: string): string {
   return value;
 }
 
-function optional(name: string, fallback = ''): string {
+export function optional(name: string, fallback = ''): string {
   const value = process.env[name];
   return value === undefined || value.trim() === '' ? fallback : value;
 }
