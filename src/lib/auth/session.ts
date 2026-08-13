@@ -36,14 +36,23 @@ export type AuthenticatedUser =
       mustChangePassword: boolean;
       stageKey: string;
       status: string;
+      mfaSatisfied: boolean;
     }
-  | { kind: 'broker'; id: string; fullName: string; email: string };
+  | { kind: 'broker'; id: string; fullName: string; email: string; mfaSatisfied: boolean };
 
-/** Issue a session and set the cookie. Returns the raw token for tests. */
+/**
+ * Issue a session and set the cookie. Returns the raw token for tests.
+ *
+ * `mfaSatisfied: false` issues a HALF-AUTHENTICATED session: the password was
+ * correct but the second factor has not been presented. It is deliberately a
+ * real session rather than a separate short-lived token, so the pending state
+ * survives a page reload — but `requireClient`/`requireBroker` refuse it, so it
+ * can reach nothing except the verification screen and sign-out.
+ */
 export async function createSession(
   userType: 'client' | 'broker',
   userId: string,
-  meta: { ip?: string; userAgent?: string } = {},
+  meta: { ip?: string; userAgent?: string; mfaSatisfied?: boolean } = {},
 ): Promise<string> {
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000);
@@ -56,6 +65,7 @@ export async function createSession(
       expiresAt,
       ipAddress: meta.ip ?? null,
       userAgent: meta.userAgent?.slice(0, 500) ?? null,
+      mfaSatisfied: meta.mfaSatisfied ?? true,
     });
   });
 
@@ -104,6 +114,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
         id: broker.id,
         fullName: broker.fullName,
         email: broker.email,
+        mfaSatisfied: session.mfaSatisfied,
       };
     }
 
@@ -125,6 +136,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
         mustChangePassword: client.mustChangePassword,
         stageKey: client.stageKey,
         status: client.status,
+        mfaSatisfied: session.mfaSatisfied,
       };
     }
 
@@ -132,11 +144,22 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
   });
 }
 
-/** Throw-if-absent helpers for route handlers. */
+/**
+ * Throw-if-absent helpers for route handlers.
+ *
+ * Both refuse a half-authenticated session. That refusal lives HERE rather than
+ * in middleware on purpose: middleware guards paths, and a path someone forgets
+ * to list is silently unguarded. Every authenticated route already calls one of
+ * these, so putting the check at the choke point means a new route is protected
+ * by default instead of by remembering.
+ */
 export async function requireClient() {
   const user = await getCurrentUser();
   if (!user || user.kind !== 'client') {
     throw new AuthError('Not authenticated as a client');
+  }
+  if (!user.mfaSatisfied) {
+    throw new AuthError('Two-factor verification is still outstanding');
   }
   return user;
 }
@@ -146,7 +169,33 @@ export async function requireBroker() {
   if (!user || user.kind !== 'broker') {
     throw new AuthError('Not authenticated as a broker');
   }
+  if (!user.mfaSatisfied) {
+    throw new AuthError('Two-factor verification is still outstanding');
+  }
   return user;
+}
+
+/**
+ * The user behind a session that has passed the password but not the second
+ * factor. Only the verification screen and its endpoint may use this.
+ */
+export async function getPendingMfaUser(): Promise<AuthenticatedUser | null> {
+  const user = await getCurrentUser();
+  return user && !user.mfaSatisfied ? user : null;
+}
+
+/** Mark the current session as having cleared its second factor. */
+export async function markMfaSatisfied(): Promise<void> {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  if (!token) return;
+
+  await asSystem(async (db) => {
+    await db
+      .update(sessions)
+      .set({ mfaSatisfied: true })
+      .where(eq(sessions.tokenHash, hashToken(token)));
+  });
 }
 
 export class AuthError extends Error {

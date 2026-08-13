@@ -1,6 +1,10 @@
 /**
  * Per-request Content-Security-Policy with a nonce.
  *
+ * Named `proxy` in a file called proxy.ts: Next 16 renamed the `middleware`
+ * convention. The old name still runs but warns, and Next refuses to start if
+ * both files exist.
+ *
  * Why this is not a static header in next.config.ts (where it started, and
  * where it was broken):
  *
@@ -22,7 +26,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
 
   // Next's dev server compiles with eval; production does not need it. Scoping

@@ -3,6 +3,11 @@ import type { NextConfig } from 'next';
 const config: NextConfig = {
   reactStrictMode: true,
 
+  // Next 16 writes AGENTS.md and CLAUDE.md into the repo root on every dev
+  // start. Turned off: nothing here asked for them, and silently generating a
+  // CLAUDE.md would collide with whatever conventions this repo adopts later.
+  agentRules: false,
+
   // Standalone output bundles only the files the server actually needs, which
   // keeps the production image small and makes the app portable across hosts.
   output: 'standalone',
@@ -28,7 +33,7 @@ const config: NextConfig = {
           // Content-Security-Policy is NOT set here. It needs a per-request
           // nonce so Next's inline bootstrap and RSC payload scripts are
           // allowed to run — a static `script-src 'self'` blocks them and the
-          // app never hydrates. See src/middleware.ts.
+          // app never hydrates. See src/proxy.ts.
         ],
       },
     ];

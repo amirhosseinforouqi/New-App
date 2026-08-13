@@ -35,6 +35,8 @@ export const agentRunStatus = pgEnum('agent_run_status', [
   'failed',
 ]);
 
+export const brokerRole = pgEnum('broker_role', ['owner', 'agent', 'assistant', 'compliance']);
+
 export const brokers = pgTable('brokers', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull(),
@@ -43,6 +45,22 @@ export const brokers = pgTable('brokers', {
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+
+  totpSecret: text('totp_secret'),
+  totpEnabled: boolean('totp_enabled').notNull().default(false),
+  totpConfirmedAt: timestamp('totp_confirmed_at', { withTimezone: true }),
+  totpLastStep: bigint('totp_last_step', { mode: 'number' }),
+
+  role: brokerRole('role').notNull().default('agent'),
+  phone: text('phone'),
+  licenceNumber: text('licence_number'),
+  brokerageName: text('brokerage_name'),
+  brokerageAddress: text('brokerage_address'),
+  equifaxMemberNumber: text('equifax_member_number'),
+  expertProfileNumber: text('expert_profile_number'),
+  commissionSplitPercent: numeric('commission_split_percent').notNull().default('100'),
+  invitedBy: uuid('invited_by'),
+  inviteAcceptedAt: timestamp('invite_accepted_at', { withTimezone: true }),
 });
 
 export const pipelineStages = pgTable('pipeline_stages', {
@@ -71,6 +89,11 @@ export const clients = pgTable('clients', {
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
   failedLoginCount: integer('failed_login_count').notNull().default(0),
   lockedUntil: timestamp('locked_until', { withTimezone: true }),
+
+  totpSecret: text('totp_secret'),
+  totpEnabled: boolean('totp_enabled').notNull().default(false),
+  totpConfirmedAt: timestamp('totp_confirmed_at', { withTimezone: true }),
+  totpLastStep: bigint('totp_last_step', { mode: 'number' }),
 });
 
 export const clientStageHistory = pgTable('client_stage_history', {
@@ -139,6 +162,7 @@ export const sessions = pgTable('sessions', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
+  mfaSatisfied: boolean('mfa_satisfied').notNull().default(true),
 });
 
 export const agentRuns = pgTable('agent_runs', {

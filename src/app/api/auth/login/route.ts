@@ -137,7 +137,12 @@ export async function POST(request: Request) {
         ok: true as const,
         userType: 'client' as const,
         userId: client.id,
-        redirect: client.mustChangePassword ? '/change-password' : '/dashboard',
+        mfaRequired: client.totpEnabled,
+        redirect: client.totpEnabled
+          ? '/verify'
+          : client.mustChangePassword
+            ? '/change-password'
+            : '/dashboard',
       };
     }
 
@@ -171,7 +176,8 @@ export async function POST(request: Request) {
         ok: true as const,
         userType: 'broker' as const,
         userId: broker.id,
-        redirect: '/broker',
+        mfaRequired: broker.totpEnabled,
+        redirect: broker.totpEnabled ? '/verify' : '/broker',
       };
     }
 
@@ -184,7 +190,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: outcome.error }, { status: outcome.status });
   }
 
-  await createSession(outcome.userType, outcome.userId, { ip: ip ?? undefined, userAgent });
+  // With 2FA on, the session is created HALF-AUTHENTICATED. The password is
+  // verified but nothing is reachable until the second factor is presented —
+  // see requireClient/requireBroker, which refuse an unsatisfied session.
+  await createSession(outcome.userType, outcome.userId, {
+    ip: ip ?? undefined,
+    userAgent,
+    mfaSatisfied: !outcome.mfaRequired,
+  });
 
   return NextResponse.json({ ok: true, redirect: outcome.redirect });
 }
