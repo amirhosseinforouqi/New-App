@@ -324,6 +324,8 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             </section>
 
             <CompliancePanel
+              dealId={deal.id}
+              documents={workspace.dealDocuments}
               items={workspace.compliance}
               borrowers={borrowers.map((borrower) => ({
                 clientId: borrower.clientId,

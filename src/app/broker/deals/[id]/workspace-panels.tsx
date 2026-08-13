@@ -10,6 +10,7 @@
 import type { ProductMatch } from '@/lib/lenders/matching';
 import type { SubmissionReadiness } from '@/lib/deals/validation';
 import type { Workspace } from '@/lib/deals/workspace';
+import { ComplianceControls } from './compliance-controls';
 
 const money = (value: number) =>
   value.toLocaleString('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 });
@@ -200,13 +201,17 @@ export function CrossSellPanel({ suggestions }: { suggestions: Workspace['crossS
 }
 
 export function CompliancePanel({
+  dealId,
   items,
   borrowers,
+  documents,
   identityByClient,
   consentByClient,
 }: {
+  dealId: string;
   items: Workspace['compliance'];
   borrowers: Array<{ clientId: string; fullName: string }>;
+  documents: Array<{ id: string; fileName: string }>;
   identityByClient: Map<string, boolean>;
   consentByClient: Map<string, boolean>;
 }) {
@@ -227,58 +232,32 @@ export function CompliancePanel({
           loads for a deal with borrowers.
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-[var(--color-line)]">
-          {items.map((item) => (
-            <li key={item.id} className="flex items-start gap-3 py-2.5">
-              <span
-                aria-hidden
-                className={
-                  'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ' +
-                  (item.status === 'complete'
-                    ? 'bg-[var(--color-ok-100)] text-[var(--color-ok-600)]'
-                    : 'border border-[var(--color-line-strong)]')
-                }
-              >
-                {item.status === 'complete' ? '✓' : ''}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium">
-                  {item.label}
-                  {item.requiresDocument && (
-                    <span className="ml-1.5 text-[12px] font-normal text-[var(--color-ink-400)]">
-                      (document required)
-                    </span>
-                  )}
-                </p>
-                {item.description && (
-                  <p className="text-[13px] leading-relaxed text-[var(--color-ink-500)]">
-                    {item.description}
-                  </p>
-                )}
-              </div>
-              <span className="sr-only">
-                {item.status === 'complete' ? 'Complete' : 'Outstanding'}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="mt-4">
+          <ComplianceControls
+            dealId={dealId}
+            items={items.map((item) => ({
+              id: item.id,
+              label: item.label,
+              description: item.description,
+              requiresDocument: item.requiresDocument,
+              status: item.status,
+              documentId: item.documentId,
+            }))}
+            borrowers={borrowers.map((borrower) => ({
+              ...borrower,
+              identityVerified: identityByClient.get(borrower.clientId) ?? false,
+            }))}
+            documents={documents}
+          />
+        </div>
       )}
 
       <div className="mt-4 border-t border-[var(--color-line)] pt-4">
-        <p className="label">FINTRAC status per borrower</p>
+        <p className="label">Consent status</p>
         <ul className="space-y-1.5">
           {borrowers.map((borrower) => (
             <li key={borrower.clientId} className="flex flex-wrap items-center gap-2 text-[13px]">
               <span className="font-medium">{borrower.fullName}</span>
-              <span
-                className={
-                  identityByClient.get(borrower.clientId)
-                    ? 'badge badge-approved'
-                    : 'badge badge-needs_attention'
-                }
-              >
-                {identityByClient.get(borrower.clientId) ? 'ID verified' : 'ID not verified'}
-              </span>
               <span
                 className={
                   consentByClient.get(borrower.clientId)
@@ -291,6 +270,10 @@ export function CompliancePanel({
             </li>
           ))}
         </ul>
+        <p className="field-hint">
+          Consents are signed by the borrower in their own portal. You cannot sign on their
+          behalf.
+        </p>
       </div>
     </section>
   );

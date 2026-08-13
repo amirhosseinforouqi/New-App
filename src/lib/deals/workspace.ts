@@ -7,7 +7,7 @@
  * testable because they never touch a database.
  */
 
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import type { Db } from '@/db';
 import {
@@ -16,6 +16,7 @@ import {
   crossSellOpportunities,
   dealComplianceItems,
   documentRequests,
+  documents,
   downPaymentSources,
   identityVerifications,
   lenderProducts,
@@ -34,6 +35,8 @@ export interface Workspace {
   crossSell: Array<{ productKey: string; label: string; rationale: string; priority: number; status: string }>;
   outstandingDocuments: string[];
   downPayment: Array<typeof downPaymentSources.$inferSelect>;
+  /** Uploads on this deal, for attaching to a compliance item. */
+  dealDocuments: Array<{ id: string; fileName: string }>;
   identityByClient: Map<string, boolean>;
   consentByClient: Map<string, boolean>;
 }
@@ -104,6 +107,13 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
         .from(crossSellOpportunities)
         .where(eq(crossSellOpportunities.dealId, deal.id)),
 
+    dealDocuments: () =>
+      db
+        .select({ id: documents.id, fileName: documents.fileName })
+        .from(documents)
+        .where(eq(documents.dealId, deal.id))
+        .orderBy(desc(documents.createdAt)),
+
     products: () =>
       db
         .select({
@@ -140,6 +150,7 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
   const signed = await queries.signed();
   const downPayment = await queries.downPayment();
   const crossSellRows = await queries.crossSellRows();
+  const dealDocuments = await queries.dealDocuments();
   const products = await queries.products();
 
   const identityByClient = new Map(borrowerIds.map((id) => [id, false]));
@@ -248,6 +259,7 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
     crossSell,
     outstandingDocuments: outstanding.map((row) => row.label),
     downPayment,
+    dealDocuments,
     identityByClient,
     consentByClient,
   };
