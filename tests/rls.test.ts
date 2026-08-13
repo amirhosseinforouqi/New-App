@@ -28,7 +28,7 @@ describe('row-level security', { skip: !CONNECTION ? 'UWA_TEST_DATABASE_URL not 
 
   /** Run a query inside a transaction bound to an actor, exactly as src/db does. */
   async function as<T extends pg.QueryResultRow = pg.QueryResultRow>(
-    actor: { type: string; clientId?: string },
+    actor: { type: string; clientId?: string; brokerId?: string },
     sql: string,
     params: unknown[] = [],
   ): Promise<pg.QueryResult<T>> {
@@ -39,6 +39,10 @@ describe('row-level security', { skip: !CONNECTION ? 'UWA_TEST_DATABASE_URL not 
       await connection.query('SELECT set_config($1, $2, true)', [
         'app.client_id',
         actor.clientId ?? '',
+      ]);
+      await connection.query('SELECT set_config($1, $2, true)', [
+        'app.broker_id',
+        actor.brokerId ?? '',
       ]);
       const result = await connection.query<T>(sql, params);
       await connection.query('COMMIT');
@@ -281,6 +285,57 @@ describe('row-level security', { skip: !CONNECTION ? 'UWA_TEST_DATABASE_URL not 
       [],
       `these tables are reachable by the app role with no RLS policy: ${unprotected.join(', ')}`,
     );
+  });
+
+  /**
+   * 0002 revoked INSERT on `brokers` so an application compromise could not
+   * mint an administrator. 0007 reopened it for owners only, which is exactly
+   * the sort of relaxation that quietly becomes a hole — so the narrowness is
+   * pinned here rather than trusted.
+   */
+  describe('only an owner can create a broker', () => {
+    const insert = (suffix: string) =>
+      `INSERT INTO brokers (email, full_name, password_hash)
+       VALUES ('rls-new-${suffix}@example.test', 'Minted Admin', 'scrypt$1$1$1$x$y')`;
+
+    it('refuses a client actor', async () => {
+      await assert.rejects(
+        () => as({ type: 'client', clientId: clientA }, insert('client')),
+        /row-level security|permission denied/i,
+      );
+    });
+
+    it('refuses the system actor, which is the most widely reachable one', async () => {
+      // Session lookup, the inbound-mail worker and the public intake form all
+      // run as system. If that path could create brokers, the public /apply
+      // endpoint would be one bug away from an admin account.
+      await assert.rejects(
+        () => as({ type: 'system' }, insert('system')),
+        /row-level security|permission denied/i,
+      );
+    });
+
+    it('refuses the agent actor', async () => {
+      await assert.rejects(
+        () => as({ type: 'agent' }, insert('agent')),
+        /row-level security|permission denied/i,
+      );
+    });
+
+    it('refuses a broker actor whose id is not an owner', async () => {
+      // A broker session with no id set, or a non-owner id, must fail.
+      await assert.rejects(
+        () => as({ type: 'broker' }, insert('nobroker')),
+        /row-level security|permission denied/i,
+      );
+    });
+
+    it('still refuses DELETE to everyone', async () => {
+      await assert.rejects(
+        () => as({ type: 'broker' }, `DELETE FROM brokers`),
+        /permission denied|row-level security/i,
+      );
+    });
   });
 
   it('keeps credential tables away from a client actor entirely', async () => {

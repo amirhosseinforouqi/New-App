@@ -59,7 +59,12 @@ async function main() {
     const passwordHash = await hashPassword(password);
 
     await client.query(
-      'INSERT INTO brokers (email, full_name, password_hash) VALUES (lower($1), $2, $3)',
+      // Role 'owner': this is the account that sets the brokerage up, and
+      // without it nobody can invite the team, issue API keys or see
+      // commissions. Migration 0004 promotes the first broker, but only for
+      // brokerages that already existed when it ran.
+      `INSERT INTO brokers (email, full_name, password_hash, role)
+       VALUES (lower($1), $2, $3, 'owner')`,
       [email, fullName, passwordHash],
     );
 

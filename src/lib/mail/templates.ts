@@ -340,3 +340,60 @@ ${params.brokerName}`;
     html,
   };
 }
+
+/**
+ * Inviting someone onto the brokerage team.
+ *
+ * Carries the same forced password change as a client invitation — a
+ * generated credential that has travelled through email is single-use by
+ * design, not a password anyone should keep.
+ */
+export function teamInviteEmail(params: {
+  fullName: string;
+  email: string;
+  password: string;
+  role: string;
+  invitedBy: string;
+}): EmailBody {
+  const firstName = params.fullName.trim().split(/\s+/)[0] ?? params.fullName;
+
+  const roleDescription: Record<string, string> = {
+    owner: 'full access, including the team, commissions and integrations',
+    agent: 'your own deals and clients',
+    assistant: 'documents and client communication, but not commissions',
+    compliance: 'every file, for compliance review',
+  };
+
+  const text = `Hi ${firstName},
+
+${params.invitedBy} has set you up on ${env.appName}.
+
+  Sign in at:  ${env.appUrl}/login
+  Email:       ${params.email}
+  Password:    ${params.password}
+
+You have ${roleDescription[params.role] ?? params.role} access.
+
+You will be asked to choose a new password the first time you sign in, and this one stops working at that point. Please turn on two-factor authentication under Security once you are in — you will be handling other people's financial records.
+
+${params.invitedBy}`;
+
+  const html = layout(`
+    <p style="${P}">Hi ${escapeHtml(firstName)},</p>
+    <p style="${P}">${escapeHtml(params.invitedBy)} has set you up on ${escapeHtml(env.appName)}.</p>
+    <table role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 24px 0;background:#f6f7f9;border-radius:8px;">
+      <tr><td style="padding:16px 20px;font-size:15px;line-height:26px;color:#1a1f2b;">
+        <strong>Email:</strong> ${escapeHtml(params.email)}<br/>
+        <strong>Password:</strong> <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escapeHtml(params.password)}</span>
+      </td></tr>
+    </table>
+    <p style="margin:0 0 24px 0;">
+      <a href="${env.appUrl}/login" style="display:inline-block;background:#1a1f2b;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;">Sign in</a>
+    </p>
+    <p style="${P}">You have ${escapeHtml(roleDescription[params.role] ?? params.role)} access.</p>
+    <p style="${P}">You will be asked to choose a new password the first time you sign in, and this one stops working at that point. Please turn on two-factor authentication under Security once you are in — you will be handling other people’s financial records.</p>
+    <p style="${P}">${escapeHtml(params.invitedBy)}</p>
+  `);
+
+  return { subject: `You have been added to ${env.appName}`, text, html };
+}

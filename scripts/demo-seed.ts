@@ -53,8 +53,9 @@ async function main() {
     await db.query(`DELETE FROM brokers WHERE email = $1`, [DEMO_BROKER]);
 
     const broker = await db.query<{ id: string }>(
-      `INSERT INTO brokers (email, full_name, password_hash)
-       VALUES ($1, 'Amir Foroughi', $2) RETURNING id`,
+      `INSERT INTO brokers (email, full_name, password_hash, role, brokerage_name, phone)
+       VALUES ($1, 'Amir Foroughi', $2, 'owner', 'UWA Mortgage Group', '(416) 555-0100')
+       RETURNING id`,
       [DEMO_BROKER, passwordHash],
     );
     const brokerId = broker.rows[0]!.id;

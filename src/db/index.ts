@@ -79,6 +79,12 @@ export async function withActor<T>(actor: Actor, fn: (db: Db) => Promise<T>): Pr
       'app.client_id',
       actor.type === 'client' ? actor.clientId : '',
     ]);
+    // Published so policies can distinguish WHICH broker is acting, not merely
+    // that one is. Only the owner-gated INSERT on `brokers` uses it today.
+    await connection.query('SELECT set_config($1, $2, true)', [
+      'app.broker_id',
+      actor.type === 'broker' ? actor.brokerId : '',
+    ]);
 
     const db = drizzle(connection, { schema });
     const result = await fn(db);
