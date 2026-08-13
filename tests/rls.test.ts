@@ -54,6 +54,22 @@ describe('row-level security', { skip: !CONNECTION ? 'UWA_TEST_DATABASE_URL not 
   before(async () => {
     pool = new pg.Pool({ connectionString: CONNECTION });
 
+    // Fail with something actionable. Without this, an unreachable database
+    // surfaces as fourteen tests "cancelledByParent" and a summary reading
+    // `fail 0`, which looks like success at a glance. The exit code is still
+    // non-zero, but a human skimming the output should not have to notice the
+    // difference between `pass 201` and `tests 215`.
+    try {
+      const probe = await pool.connect();
+      probe.release();
+    } catch (error) {
+      throw new Error(
+        `Cannot reach the test database at UWA_TEST_DATABASE_URL. ` +
+          `These tests need a live, migrated Postgres — unset the variable to skip them. ` +
+          `Original error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
     // Seed as the system actor (staff-equivalent under the policies).
     // No broker row is created: `brokers` is intentionally not writable by the
     // application role, and the broker policies key off app.actor_type rather

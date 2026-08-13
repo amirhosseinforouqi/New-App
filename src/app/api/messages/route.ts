@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { asBroker, asClient, asSystem } from '@/db';
 import { clients, messages } from '@/db/schema';
 import { recordAudit } from '@/lib/audit';
+import { resolveDealForClient } from '@/lib/deals/active';
 import { getCurrentUser } from '@/lib/auth/session';
 import { messageChannel, publish } from '@/lib/events';
 import { sendEmail } from '@/lib/mail/smtp';
@@ -49,14 +50,26 @@ export async function POST(request: Request) {
       ? await asClient(user.id, async (db) => {
           const [row] = await db
             .insert(messages)
-            .values({ clientId, senderType: 'client', senderId: user.id, body })
+            .values({
+              clientId,
+              dealId: await resolveDealForClient(db, clientId),
+              senderType: 'client',
+              senderId: user.id,
+              body,
+            })
             .returning();
           return row;
         })
       : await asBroker(user.id, async (db) => {
           const [row] = await db
             .insert(messages)
-            .values({ clientId, senderType: 'broker', senderId: user.id, body })
+            .values({
+              clientId,
+              dealId: await resolveDealForClient(db, clientId),
+              senderType: 'broker',
+              senderId: user.id,
+              body,
+            })
             .returning();
 
           await recordAudit(db, {

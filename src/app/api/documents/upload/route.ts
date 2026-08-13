@@ -19,6 +19,7 @@ import { asClient, asSystem } from '@/db';
 import { clients, documentRequests, documents } from '@/db/schema';
 import { dispatchTrigger } from '@/lib/agent';
 import { recordAudit } from '@/lib/audit';
+import { resolveDealForClient } from '@/lib/deals/active';
 import { getCurrentUser } from '@/lib/auth/session';
 import { uploadToClientFolder } from '@/lib/drive/service';
 import { env } from '@/lib/env';
@@ -63,6 +64,11 @@ export async function POST(request: Request) {
   const file = form.get('file');
   const requestIdRaw = form.get('requestId');
   const requestId = typeof requestIdRaw === 'string' && requestIdRaw ? requestIdRaw : null;
+
+  // Optional. When the dashboard is showing one of several applications it
+  // sends the id; membership is re-checked server-side before it is used.
+  const dealIdRaw = form.get('dealId');
+  const dealId = typeof dealIdRaw === 'string' && dealIdRaw ? dealIdRaw : null;
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: 'No file was included.' }, { status: 400 });
@@ -159,6 +165,9 @@ export async function POST(request: Request) {
       .insert(documents)
       .values({
         clientId: user.id,
+        // Which application this belongs to. On a multi-deal client an
+        // unattributed upload would be invisible on every deal-scoped view.
+        dealId: await resolveDealForClient(db, user.id, dealId),
         requestId,
         driveFileId: uploaded.fileId,
         fileName: uploaded.name,
