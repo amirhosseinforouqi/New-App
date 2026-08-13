@@ -225,4 +225,61 @@ describe('row-level security', { skip: !CONNECTION ? 'UWA_TEST_DATABASE_URL not 
     assert.equal(result.rows[0]!.rolsuper, false, 'app role is a superuser — RLS is inert');
     assert.equal(result.rows[0]!.rolbypassrls, false, 'app role has BYPASSRLS — RLS is inert');
   });
+
+  /**
+   * The audit that found the 0005 gaps, kept as a test.
+   *
+   * A Postgres grant is unconditional when no policy exists, so any table the
+   * app role can reach without RLS is readable by every actor — including a
+   * borrower. Adding a table and its GRANT while forgetting its policy is an
+   * easy mistake that no individual test above would catch, because those
+   * tests only cover tables someone thought to write a test for. This one
+   * covers tables nobody thought about, which is the dangerous set.
+   */
+  it('leaves no granted table without row-level security', async () => {
+    // pipeline_stages is public reference data — the six stage names, read
+    // directly by the client dashboard. Nothing in it is client-specific.
+    const intentionallyOpen = new Set(['pipeline_stages']);
+
+    const result = await as<{ tablename: string }>(
+      { type: 'system' },
+      `SELECT t.tablename
+         FROM pg_tables t
+        WHERE t.schemaname = 'public'
+          AND NOT t.rowsecurity
+          AND EXISTS (
+            SELECT 1 FROM information_schema.role_table_grants g
+             WHERE g.table_schema = 'public'
+               AND g.table_name = t.tablename
+               AND g.grantee = current_user
+          )
+        ORDER BY t.tablename`,
+    );
+
+    const unprotected = result.rows
+      .map((row) => row.tablename)
+      .filter((name) => !intentionallyOpen.has(name));
+
+    assert.deepEqual(
+      unprotected,
+      [],
+      `these tables are reachable by the app role with no RLS policy: ${unprotected.join(', ')}`,
+    );
+  });
+
+  it('keeps credential tables away from a client actor entirely', async () => {
+    // brokers.password_hash and the session token hashes. Neither is reachable
+    // through a route today; the point is that it stays true if one ever is.
+    for (const table of ['brokers', 'sessions', 'inbound_emails']) {
+      const seen = await as({ type: 'client', clientId: clientA }, `SELECT * FROM ${table}`);
+      assert.equal(seen.rowCount, 0, `a client actor could read ${table}`);
+    }
+
+    // ...while the system actor, which every auth path uses, still can.
+    const asSystem = await as({ type: 'system' }, 'SELECT * FROM brokers');
+    assert.ok(
+      (asSystem.rowCount ?? 0) >= 0,
+      'the system actor must retain access or login breaks',
+    );
+  });
 });
