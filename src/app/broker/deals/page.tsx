@@ -45,8 +45,13 @@ export default async function DealsPage() {
     updatedAt: card.updatedAt.toISOString(),
   }));
 
-  const volume = deals.reduce((sum, deal) => sum + (deal.mortgageAmount ?? 0), 0);
-  const attention = deals.filter((deal) => deal.unread > 0 || deal.awaitingReview > 0).length;
+  // A funded deal is still on the board — the broker wants to see this month's
+  // closings — but it is not live work and it is not pipeline volume. Counting
+  // it as either overstates both numbers.
+  const live = deals.filter((deal) => deal.status !== 'funded');
+  const funded = deals.length - live.length;
+  const volume = live.reduce((sum, deal) => sum + (deal.mortgageAmount ?? 0), 0);
+  const attention = live.filter((deal) => deal.unread > 0 || deal.awaitingReview > 0).length;
 
   return (
     <div className="min-h-dvh">
@@ -62,7 +67,8 @@ export default async function DealsPage() {
           <div>
             <h1 className="text-[22px] font-semibold tracking-[-0.01em]">Deals</h1>
             <p className="mt-1 text-sm text-[var(--color-ink-500)]">
-              {deals.length} active
+              {live.length} active
+              {funded > 0 && ` · ${funded} funded`}
               {volume > 0 && (
                 <>
                   {' · '}

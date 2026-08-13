@@ -41,30 +41,38 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
     const [client] = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
     if (!client) return null;
 
-    const [checklist, files, thread, history, runs] = await Promise.all([
-      db
-        .select()
-        .from(documentRequests)
-        .where(eq(documentRequests.clientId, id))
-        .orderBy(asc(documentRequests.sortOrder)),
-      db
-        .select()
-        .from(documents)
-        .where(eq(documents.clientId, id))
-        .orderBy(desc(documents.createdAt)),
-      db.select().from(messages).where(eq(messages.clientId, id)).orderBy(asc(messages.createdAt)),
-      db
-        .select()
-        .from(clientStageHistory)
-        .where(eq(clientStageHistory.clientId, id))
-        .orderBy(desc(clientStageHistory.createdAt)),
-      db
-        .select()
-        .from(agentRuns)
-        .where(eq(agentRuns.clientId, id))
-        .orderBy(desc(agentRuns.createdAt))
-        .limit(10),
-    ]);
+    // Sequential, not Promise.all — see the note in src/app/dashboard/page.tsx.
+    // These all share the single pooled connection this transaction holds.
+    const checklist = await db
+      .select()
+      .from(documentRequests)
+      .where(eq(documentRequests.clientId, id))
+      .orderBy(asc(documentRequests.sortOrder));
+
+    const files = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.clientId, id))
+      .orderBy(desc(documents.createdAt));
+
+    const thread = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.clientId, id))
+      .orderBy(asc(messages.createdAt));
+
+    const history = await db
+      .select()
+      .from(clientStageHistory)
+      .where(eq(clientStageHistory.clientId, id))
+      .orderBy(desc(clientStageHistory.createdAt));
+
+    const runs = await db
+      .select()
+      .from(agentRuns)
+      .where(eq(agentRuns.clientId, id))
+      .orderBy(desc(agentRuns.createdAt))
+      .limit(10);
 
     // Mark inbound messages read now that the broker is looking at them.
     await db

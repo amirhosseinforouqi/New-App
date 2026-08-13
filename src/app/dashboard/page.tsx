@@ -26,29 +26,35 @@ export default async function DashboardPage() {
   if (user.kind !== 'client') redirect('/broker');
   if (user.mustChangePassword) redirect('/change-password');
 
+  // Sequential, not Promise.all. Every query here shares the ONE pooled
+  // connection that `withActor` has a transaction open on, and node-postgres
+  // cannot run concurrent queries on a single client — it queues them and
+  // warns, and future versions throw. Four indexed reads on a warm connection
+  // are not worth the risk of interleaving them.
   const data = await asClient(user.id, async (db) => {
-    const [checklist, uploaded, thread, history] = await Promise.all([
-      db
-        .select()
-        .from(documentRequests)
-        .where(eq(documentRequests.clientId, user.id))
-        .orderBy(asc(documentRequests.sortOrder)),
-      db
-        .select()
-        .from(documents)
-        .where(eq(documents.clientId, user.id))
-        .orderBy(desc(documents.createdAt)),
-      db
-        .select()
-        .from(messages)
-        .where(eq(messages.clientId, user.id))
-        .orderBy(asc(messages.createdAt)),
-      db
-        .select()
-        .from(clientStageHistory)
-        .where(eq(clientStageHistory.clientId, user.id))
-        .orderBy(asc(clientStageHistory.createdAt)),
-    ]);
+    const checklist = await db
+      .select()
+      .from(documentRequests)
+      .where(eq(documentRequests.clientId, user.id))
+      .orderBy(asc(documentRequests.sortOrder));
+
+    const uploaded = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.clientId, user.id))
+      .orderBy(desc(documents.createdAt));
+
+    const thread = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.clientId, user.id))
+      .orderBy(asc(messages.createdAt));
+
+    const history = await db
+      .select()
+      .from(clientStageHistory)
+      .where(eq(clientStageHistory.clientId, user.id))
+      .orderBy(asc(clientStageHistory.createdAt));
 
     return { checklist, uploaded, thread, history };
   });

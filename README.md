@@ -63,7 +63,21 @@ roadmap.
 
 ---
 
-## See it running — one command
+## See it running — in your browser, no install
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/amirhosseinforouqi/New-App/tree/claude/uwa-mortgage-portal-8ot5zi)
+
+Click the badge (or **Code → Codespaces → Create codespace on this branch** on GitHub). The
+codespace boots the same demo stack described below automatically — Postgres, migrations,
+seed data, dev server — no Docker, no local setup, nothing to install on your machine.
+
+First boot takes a minute or two while it installs dependencies and seeds the database.
+Codespaces will pop up a notification to open port 3000 in the browser once the server is
+listening; if you miss it, open the **Ports** tab and click the globe icon next to `3000`, or
+run `docker compose -f ../docker-compose.demo.yml logs -f app` in the terminal to watch
+progress. Sign in with the credentials below.
+
+## See it running locally — one command
 
 To look at the portal before configuring Google Drive, email or an Anthropic key.
 Needs Docker only.
@@ -73,8 +87,23 @@ docker compose -f docker-compose.demo.yml up
 ```
 
 Postgres starts, migrations apply, demo data seeds, and the app comes up at
-<http://localhost:3000/login>. Tear it down with
-`docker compose -f docker-compose.demo.yml down`.
+<http://localhost:3000/login> (in Codespaces, the forwarded `3000` port instead). Tear it
+down with `docker compose -f docker-compose.demo.yml down`.
+
+| Sign in as | Username | Password |
+|---|---|---|
+| Client, mid-file | `pramanathan` | `demo-portal-2026` |
+| Client, new enquiry | `mdelacroixwebb` | `demo-portal-2026` |
+| Broker | `demo.broker@example.test` | `demo-portal-2026` |
+
+The deals board is at **Broker → Deals**, and the public bilingual application — the thing a
+prospective borrower would actually fill in — is at `/apply` (unauthenticated, linked from
+the board's "Application link" button). The calculators at `/calculators` need no login
+either.
+
+Everything works except document downloads — the demo document records have no bytes behind
+them in Drive, so those links 502. Uploads need real Drive credentials; emails and agent
+skills need SMTP and an Anthropic key.
 
 <details>
 <summary>Prefer to run it directly, without Docker for the app?</summary>
@@ -102,19 +131,8 @@ export SESSION_SECRET="$(node -e "console.log(require('crypto').randomBytes(48).
 npm run dev
 ```
 
-Open <http://localhost:3000/login>:
-
-| Sign in as | Username | Password |
-|---|---|---|
-| Client, mid-file | `pramanathan` | `demo-portal-2026` |
-| Client, new enquiry | `mdelacroixwebb` | `demo-portal-2026` |
-| Broker | `demo.broker@example.test` | `demo-portal-2026` |
-
-Everything works except document downloads — the demo document records have no
-bytes behind them in Drive, so those links 502. Uploads need real Drive
-credentials; emails and agent skills need SMTP and an Anthropic key.
-
-Tear down with `docker rm -f uwa-db`.
+Open <http://localhost:3000/login> — same credentials as above. Tear down with
+`docker rm -f uwa-db`.
 
 </details>
 

@@ -1,0 +1,24 @@
+{
+  "name": "UWA Mortgage Portal — demo",
+  // Reuses docker-compose.demo.yml exactly as-is: Postgres plus the app
+  // container, which installs dependencies, migrates, seeds demo data and
+  // starts the dev server on boot. Nothing Codespaces-specific to keep in
+  // sync — the same file a local `docker compose up` uses.
+  "dockerComposeFile": ["../docker-compose.demo.yml"],
+  "service": "app",
+  "workspaceFolder": "/app",
+  "shutdownAction": "stopCompose",
+
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "UWA Mortgage Portal",
+      "onAutoForward": "openPreview"
+    }
+  },
+
+  // The compose command already runs `npm install`, migrates and seeds —
+  // first boot still takes a minute or two. Watch the terminal for "UWA is
+  // running at" and the printed demo credentials before opening the preview.
+  "postCreateCommand": "echo 'First boot installs dependencies, migrates and seeds demo data — this can take a minute or two. Run: docker compose -f ../docker-compose.demo.yml logs -f app'"
+}

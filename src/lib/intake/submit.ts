@@ -17,14 +17,16 @@
  *   than a duplicate login. One person, one identity, many applications.
  */
 
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { asSystem } from '@/db';
 import {
+  agentRuns,
   applications,
   borrowerIncomes,
   borrowerLiabilities,
   brokers,
+  clientStageHistory,
   dealBorrowers,
   deals,
   referralSources,
@@ -176,6 +178,22 @@ export async function submitIntake(input: SubmitIntakeInput): Promise<SubmitInta
       userAgent: input.userAgent ?? null,
       submittedAt: new Date(),
     });
+
+    // `createClientProfile` seeds the opening stage-history row and queues the
+    // checklist skill before this deal exists — it predates deals and knows
+    // nothing about them. Adopt those rows now, or the deal's timeline starts
+    // at nothing and the agent panel shows no run for a file that has one.
+    await db
+      .update(clientStageHistory)
+      .set({ dealId: deal.id })
+      .where(
+        and(eq(clientStageHistory.clientId, profile.clientId), isNull(clientStageHistory.dealId)),
+      );
+
+    await db
+      .update(agentRuns)
+      .set({ dealId: deal.id })
+      .where(and(eq(agentRuns.clientId, profile.clientId), isNull(agentRuns.dealId)));
 
     if (input.referralCode) {
       await db

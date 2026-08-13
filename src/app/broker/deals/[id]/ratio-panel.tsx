@@ -61,7 +61,7 @@ export function RatioPanel({
       <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-[var(--color-line)] pt-4 text-[13px]">
         <Row label="Gross monthly income" value={money(stressed.grossMonthlyIncome)} />
         <Row
-          label="Payment at qualifying rate"
+          label="Monthly payment at qualifying rate"
           value={money(stressed.monthlyMortgagePayment)}
         />
         <Row label="Property tax (monthly)" value={money(stressed.monthlyPropertyTax)} />

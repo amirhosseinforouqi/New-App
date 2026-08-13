@@ -206,6 +206,15 @@ export function dealRatios(
   // it is an assumption rather than something a lender has offered.
   const rate = quotedRate ?? STRESS_TEST_FLOOR;
 
+  // `deal.paymentFrequency` is deliberately NOT passed through.
+  //
+  // Lenders qualify on the contractual monthly payment. If a borrower elects
+  // accelerated bi-weekly they are volunteering to pay roughly one extra
+  // month a year — that is a prepayment, not an obligation, and charging it
+  // against GDS would fail files that a lender would approve. For the
+  // non-accelerated frequencies the monthly equivalent is the same figure
+  // anyway. The borrower's actual schedule belongs on the payment calculator,
+  // not in the qualifying ratio.
   return {
     ratios: calculateRatios({
       mortgageAmount: mortgageAmount!,
