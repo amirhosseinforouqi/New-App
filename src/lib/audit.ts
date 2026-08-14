@@ -45,6 +45,7 @@ export type AuditAction =
   | 'deal.submission_exported'
   | 'scenario.saved'
   | 'scenario.deleted'
+  | 'validation_rule.changed'
   | 'deal.assigned'
   | 'deal.locked'
   | 'deal.unlocked'

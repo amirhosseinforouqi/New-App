@@ -34,6 +34,7 @@ import {
   type ScenarioComparison,
   type ScenarioSnapshot,
 } from '@/lib/deals/scenarios';
+import { loadRuleOverrides } from '@/lib/deals/rule-settings';
 import { evaluateSubmission, type SubmissionReadiness } from '@/lib/deals/validation';
 import { dealProfile, rankProducts, type LenderProduct, type ProductMatch } from '@/lib/lenders/matching';
 
@@ -252,33 +253,38 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
 
   const { ratios } = dealRatios(detail);
 
-  const readiness = evaluateSubmission({
-    dealType: deal.dealType,
-    mortgageAmount: num(deal.mortgageAmount),
-    propertyValue: num(deal.propertyValue) ?? num(deal.purchasePrice),
-    purchasePrice: num(deal.purchasePrice),
-    downPayment: num(deal.downPayment),
-    amortizationYears: deal.amortizationYears,
-    propertyProvince: deal.propertyProvince,
-    propertyAddress: deal.propertyAddress,
-    annualPropertyTax: num(deal.annualPropertyTax),
-    monthlyHeat: num(deal.monthlyHeat),
-    borrowerCount: borrowers.length,
-    incomeCount: incomes.length,
-    ratios,
-    outstandingDocuments: outstanding.map((row) => row.label),
-    outstandingCompliance: compliance
-      .filter((item) => item.status !== 'complete')
-      .map((item) => item.label),
-    // An empty borrower list must not read as "everyone is verified".
-    allBorrowersIdentified:
-      borrowerIds.length > 0 && borrowerIds.every((id) => identityByClient.get(id)),
-    allConsentsSigned:
-      borrowerIds.length > 0 && borrowerIds.every((id) => consentByClient.get(id)),
-    downPaymentVerified:
-      downPayment.length > 0 && downPayment.every((source) => source.isVerified),
-    downPaymentFlags: downPayment.filter((source) => source.flagged).length,
-  });
+  const ruleOverrides = await loadRuleOverrides(db);
+
+  const readiness = evaluateSubmission(
+    {
+      dealType: deal.dealType,
+      mortgageAmount: num(deal.mortgageAmount),
+      propertyValue: num(deal.propertyValue) ?? num(deal.purchasePrice),
+      purchasePrice: num(deal.purchasePrice),
+      downPayment: num(deal.downPayment),
+      amortizationYears: deal.amortizationYears,
+      propertyProvince: deal.propertyProvince,
+      propertyAddress: deal.propertyAddress,
+      annualPropertyTax: num(deal.annualPropertyTax),
+      monthlyHeat: num(deal.monthlyHeat),
+      borrowerCount: borrowers.length,
+      incomeCount: incomes.length,
+      ratios,
+      outstandingDocuments: outstanding.map((row) => row.label),
+      outstandingCompliance: compliance
+        .filter((item) => item.status !== 'complete')
+        .map((item) => item.label),
+      // An empty borrower list must not read as "everyone is verified".
+      allBorrowersIdentified:
+        borrowerIds.length > 0 && borrowerIds.every((id) => identityByClient.get(id)),
+      allConsentsSigned:
+        borrowerIds.length > 0 && borrowerIds.every((id) => consentByClient.get(id)),
+      downPaymentVerified:
+        downPayment.length > 0 && downPayment.every((source) => source.isVerified),
+      downPaymentFlags: downPayment.filter((source) => source.flagged).length,
+    },
+    ruleOverrides,
+  );
 
   const propertyValue = num(deal.propertyValue) ?? num(deal.purchasePrice);
   const mortgageAmount = num(deal.mortgageAmount);

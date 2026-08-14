@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { matchProduct, rankProducts, type LenderProduct, type DealProfile } from '../src/lib/lenders/matching';
-import { evaluateSubmission, type SubmissionSnapshot } from '../src/lib/deals/validation';
+import {
+  applyOverrides,
+  evaluateSubmission,
+  RULES,
+  RULES_BY_KEY,
+  type SubmissionSnapshot,
+} from '../src/lib/deals/validation';
 import { expandTemplate, templateForDealType } from '../src/lib/compliance/templates';
 import { screenForCrossSell, type CrossSellContext } from '../src/lib/crosssell/engine';
 import { calculateCommission, defaultSplits, summariseByPayee } from '../src/lib/commissions/calculate';
@@ -250,6 +256,106 @@ describe('submission readiness', () => {
     assert.equal(empty.ready, false);
     assert.ok(empty.completeness < 50, `got ${empty.completeness}`);
     assert.ok(empty.completeness >= 0);
+  });
+});
+
+// ── Configurable rules ──────────────────────────────────────────────────────
+
+describe('rule overrides', () => {
+  const noAddress = { ...readyDeal, dealType: 'purchase', propertyAddress: null };
+
+  it('promotes a warning to blocking when the brokerage asks', () => {
+    const asShipped = evaluateSubmission(noAddress);
+    assert.equal(asShipped.ready, true);
+    assert.ok(asShipped.warnings.some((issue) => issue.key === 'address'));
+
+    const stricter = evaluateSubmission(
+      noAddress,
+      new Map([['address', { severity: 'blocking' as const }]]),
+    );
+    assert.equal(stricter.ready, false);
+    assert.ok(stricter.blocking.some((issue) => issue.key === 'address'));
+  });
+
+  it('demotes a blocking rule to a warning', () => {
+    const missingDocs = { ...readyDeal, outstandingDocuments: ['T4'] };
+
+    assert.equal(evaluateSubmission(missingDocs).ready, false);
+
+    const relaxed = evaluateSubmission(
+      missingDocs,
+      new Map([['documents', { severity: 'warning' as const }]]),
+    );
+    assert.equal(relaxed.ready, true);
+    assert.ok(relaxed.warnings.some((issue) => issue.key === 'documents'));
+  });
+
+  it('drops a disabled rule entirely', () => {
+    const noHeat = { ...readyDeal, monthlyHeat: null };
+
+    assert.ok(evaluateSubmission(noHeat).warnings.some((issue) => issue.key === 'heat'));
+
+    const off = evaluateSubmission(noHeat, new Map([['heat', { enabled: false }]]));
+    assert.ok(!off.issues.some((issue) => issue.key === 'heat'));
+  });
+
+  it('refuses to soften FINTRAC identity verification', () => {
+    // The whole point of the lock. An override row written directly into the
+    // table must not be able to weaken a legal obligation.
+    const unverified = { ...readyDeal, allBorrowersIdentified: false };
+
+    const attempted = evaluateSubmission(
+      unverified,
+      new Map([['fintrac_id', { severity: 'warning' as const, enabled: false }]]),
+    );
+
+    assert.equal(attempted.ready, false);
+    assert.ok(attempted.blocking.some((issue) => issue.key === 'fintrac_id'));
+  });
+
+  it('refuses to switch off the credit-pull consent', () => {
+    const unsigned = { ...readyDeal, allConsentsSigned: false };
+
+    const attempted = evaluateSubmission(
+      unsigned,
+      new Map([['consent', { enabled: false }]]),
+    );
+
+    assert.equal(attempted.ready, false);
+    assert.ok(attempted.blocking.some((issue) => issue.key === 'consent'));
+  });
+
+  it('reports locked rules as unchangeable through applyOverrides', () => {
+    const applied = applyOverrides(
+      new Map([
+        ['fintrac_id', { severity: 'warning' as const, enabled: false }],
+        ['heat', { severity: 'blocking' as const, enabled: true }],
+      ]),
+    );
+
+    const fintrac = applied.find((entry) => entry.rule.key === 'fintrac_id')!;
+    assert.equal(fintrac.severity, 'blocking');
+    assert.equal(fintrac.enabled, true);
+
+    const heat = applied.find((entry) => entry.rule.key === 'heat')!;
+    assert.equal(heat.severity, 'blocking');
+  });
+
+  it('keeps a disabled rule out of the completeness denominator', () => {
+    // Otherwise turning a check off would drag the bar down, which reads as
+    // the file getting worse for doing nothing.
+    const clean = evaluateSubmission(readyDeal);
+    const withOneOff = evaluateSubmission(readyDeal, new Map([['heat', { enabled: false }]]));
+
+    assert.equal(clean.completeness, 100);
+    assert.equal(withOneOff.completeness, 100);
+  });
+
+  it('every rule in the catalogue has a unique key', () => {
+    const keys = RULES.map((rule) => rule.key);
+    assert.equal(new Set(keys).size, keys.length);
+    // The engine looks rules up by key; a duplicate would silently shadow one.
+    assert.equal(RULES_BY_KEY.size, RULES.length);
   });
 });
 
