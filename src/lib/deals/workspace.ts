@@ -20,6 +20,7 @@ import {
   downPaymentSources,
   identityVerifications,
   lenderProducts,
+  lenderSubmissions,
   lenders,
 } from '@/db/schema';
 import { expandTemplate } from '@/lib/compliance/templates';
@@ -39,6 +40,13 @@ export interface Workspace {
   dealDocuments: Array<{ id: string; fileName: string }>;
   identityByClient: Map<string, boolean>;
   consentByClient: Map<string, boolean>;
+  /** Lenders and products, for the submission picker. */
+  lenderOptions: Array<{
+    id: string;
+    name: string;
+    products: Array<{ id: string; name: string; rate: number }>;
+  }>;
+  lastSubmittedAt: Date | null;
 }
 
 export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspace> {
@@ -153,6 +161,32 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
   const dealDocuments = await queries.dealDocuments();
   const products = await queries.products();
 
+  const [lastSubmission] = await db
+    .select({ submittedAt: lenderSubmissions.submittedAt })
+    .from(lenderSubmissions)
+    .where(eq(lenderSubmissions.dealId, deal.id))
+    .orderBy(desc(lenderSubmissions.submittedAt))
+    .limit(1);
+
+  const lenderOptions = [...
+    products
+      .reduce((map, product) => {
+        const entry = map.get(product.lenderId) ?? {
+          id: product.lenderId,
+          name: product.lenderName,
+          products: [] as Array<{ id: string; name: string; rate: number }>,
+        };
+        entry.products.push({
+          id: product.id,
+          name: product.name,
+          rate: Number(product.postedRate),
+        });
+        map.set(product.lenderId, entry);
+        return map;
+      }, new Map<string, { id: string; name: string; products: Array<{ id: string; name: string; rate: number }> }>())
+      .values(),
+  ];
+
   const identityByClient = new Map(borrowerIds.map((id) => [id, false]));
   for (const row of identity) identityByClient.set(row.clientId, true);
 
@@ -262,6 +296,8 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
     dealDocuments,
     identityByClient,
     consentByClient,
+    lenderOptions,
+    lastSubmittedAt: lastSubmission?.submittedAt ?? null,
   };
 }
 

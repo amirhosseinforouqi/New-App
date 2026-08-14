@@ -8,7 +8,7 @@
 
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, sql } from 'drizzle-orm';
 
 import { asBroker } from '@/db';
 import { clients, documentRequests, documents, messages } from '@/db/schema';
@@ -47,17 +47,20 @@ export default async function BrokerPage() {
         applicationType: clients.applicationType,
         createdAt: clients.createdAt,
         driveFolderId: clients.driveFolderId,
+        // `clients.id` literal, not `${clients.id}` — interpolation renders it
+        // unqualified and it binds to the inner table. See the note in
+        // `src/lib/deals/queries.ts`.
         awaitingReview: sql<number>`(
           SELECT count(*)::int FROM ${documents} d
-           WHERE d.client_id = ${clients.id} AND d.status = 'in_review'
+           WHERE d.client_id = clients.id AND d.status = 'in_review'
         )`,
         outstanding: sql<number>`(
           SELECT count(*)::int FROM ${documentRequests} r
-           WHERE r.client_id = ${clients.id} AND r.status IN ('requested', 'needs_attention')
+           WHERE r.client_id = clients.id AND r.status IN ('requested', 'needs_attention')
         )`,
         unread: sql<number>`(
           SELECT count(*)::int FROM ${messages} m
-           WHERE m.client_id = ${clients.id} AND m.sender_type = 'client' AND m.read_at IS NULL
+           WHERE m.client_id = clients.id AND m.sender_type = 'client' AND m.read_at IS NULL
         )`,
       })
       .from(clients)

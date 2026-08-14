@@ -84,8 +84,8 @@ export function LenderPanel({ matches }: { matches: ProductMatch[] }) {
 
       {matches.length === 0 ? (
         <p className="field-hint mt-2">
-          No products in your table yet, or the file has no mortgage amount. Add lenders and
-          products under Settings once you know which you work with.
+          No products in your table yet, or the file has no mortgage amount. Add the lenders you
+          place business with under <strong>Lenders</strong> in the top navigation.
         </p>
       ) : (
         <>

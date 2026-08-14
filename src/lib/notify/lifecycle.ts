@@ -95,7 +95,7 @@ export async function findRenewalCandidates(
           // sending the email and then failing to record it.
           sql`NOT EXISTS (
             SELECT 1 FROM ${lifecycleTouches} t
-             WHERE t.deal_id = ${deals.id} AND t.campaign = ${window.campaign}
+             WHERE t.deal_id = deals.id AND t.campaign = ${window.campaign}
           )`,
         ),
       );

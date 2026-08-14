@@ -11,7 +11,7 @@
  * silently shadowing an existing skill.
  */
 
-import { registerSkill, listSkills } from './registry';
+import { registerSkill } from './registry';
 import { classifyDocumentSkill } from './skills/classify-document';
 import { verifyDownPaymentSkill } from './skills/verify-down-payment';
 import { generateChecklistSkill } from './skills/generate-checklist';

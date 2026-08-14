@@ -48,6 +48,15 @@ export default async function ReportsPage() {
   const totalPending = data.commissions.reduce((sum, row) => sum + row.pending, 0);
   const totalPaid = data.commissions.reduce((sum, row) => sum + row.paid, 0);
 
+  // Read the clock once. Called inside the map, a renewal list spanning a
+  // midnight boundary would measure its rows against two different "todays".
+  //
+  // `react-hooks/purity` cannot tell a server component from a client one. This
+  // function is `async` and runs once per request on the server; there is no
+  // re-render for an unstable value to change across.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+
   return (
     <div className="min-h-dvh">
       <AppHeader
@@ -200,7 +209,7 @@ export default async function ReportsPage() {
                 {data.maturities.map((deal) => {
                   const days = deal.maturityDate
                     ? Math.round(
-                        (new Date(deal.maturityDate).getTime() - Date.now()) / 86_400_000,
+                        (new Date(deal.maturityDate).getTime() - now) / 86_400_000,
                       )
                     : null;
 

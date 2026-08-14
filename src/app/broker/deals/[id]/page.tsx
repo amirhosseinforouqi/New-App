@@ -12,6 +12,8 @@ import { calculateInsurance, minimumDownPayment } from '@/lib/finance/mortgage';
 import { calculateLandTransferTax, type Province } from '@/lib/finance/land-transfer-tax';
 import { getStage, STAGES } from '@/lib/pipeline/stages';
 import { RatioPanel } from './ratio-panel';
+import { DownPaymentPanel } from './down-payment-panel';
+import { SubmitControl } from './submit-control';
 import {
   CompliancePanel,
   CrossSellPanel,
@@ -150,6 +152,18 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             />
 
             <LenderPanel matches={workspace.matches} />
+
+            <DownPaymentPanel sources={workspace.downPayment} required={downPayment} />
+
+            <SubmitControl
+              dealId={deal.id}
+              reference={deal.reference}
+              ready={workspace.readiness.ready}
+              blockingCount={workspace.readiness.blocking.length}
+              warningCount={workspace.readiness.warnings.length}
+              lenders={workspace.lenderOptions}
+              lastSubmittedAt={workspace.lastSubmittedAt?.toISOString() ?? null}
+            />
 
             <section className="card p-5">
               <h2 className="text-sm font-semibold">The mortgage</h2>

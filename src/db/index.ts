@@ -35,7 +35,9 @@ pg.types.setTypeParser(20, (value) => Number.parseInt(value, 10));
 declare global {
   // Next.js dev mode re-evaluates modules on hot reload; without this the pool
   // is recreated each time and Postgres runs out of connections.
-  // eslint-disable-next-line no-var
+  //
+  // `var` is not a style choice: `let`/`const` in a `declare global` block do
+  // not attach to `globalThis`, so the cache below would miss on every reload.
   var __uwaPool: pg.Pool | undefined;
 }
 

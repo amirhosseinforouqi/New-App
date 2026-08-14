@@ -61,6 +61,14 @@ export interface DealCard {
  * The counts are correlated subqueries rather than joins on purpose: a join
  * against three one-to-many tables multiplies rows and then needs distinct
  * counting, which is both slower and much easier to get subtly wrong.
+ *
+ * Note the outer table is written literally as `deals.id` and NOT as
+ * `${deals.id}`. Interpolating a Drizzle column into a `sql` projection renders
+ * it *unqualified* — just `"id"` — so inside a subquery it binds to the inner
+ * table instead of the outer one. `d.deal_id = "id"` is then `d.deal_id = d.id`,
+ * which is false for every row, and the count silently comes back 0 rather than
+ * erroring. Every badge on this board read zero because of exactly that.
+ * `tests/rls.test.ts` pins both forms so the difference stays visible.
  */
 export async function listDealCards(db: Db, includeArchived = false): Promise<DealCard[]> {
   const rows = await db
@@ -83,15 +91,15 @@ export async function listDealCards(db: Db, includeArchived = false): Promise<De
       primaryClientId: deals.clientId,
       awaitingReview: sql<number>`(
         SELECT count(*)::int FROM ${documents} d
-         WHERE d.deal_id = ${deals.id} AND d.status = 'in_review'
+         WHERE d.deal_id = deals.id AND d.status = 'in_review'
       )`,
       outstanding: sql<number>`(
         SELECT count(*)::int FROM ${documentRequests} r
-         WHERE r.deal_id = ${deals.id} AND r.status IN ('requested', 'needs_attention')
+         WHERE r.deal_id = deals.id AND r.status IN ('requested', 'needs_attention')
       )`,
       unread: sql<number>`(
         SELECT count(*)::int FROM ${messages} m
-         WHERE m.deal_id = ${deals.id} AND m.sender_type = 'client' AND m.read_at IS NULL
+         WHERE m.deal_id = deals.id AND m.sender_type = 'client' AND m.read_at IS NULL
       )`,
     })
     .from(deals)

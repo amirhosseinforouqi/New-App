@@ -34,6 +34,9 @@ export interface TeamMemberRow {
 }
 
 export async function listTeam(db: Db): Promise<TeamMemberRow[]> {
+  // `brokers.id` is written literally, not as `${brokers.id}` — see the note in
+  // `src/lib/deals/queries.ts`. Interpolated, it renders unqualified and binds
+  // to the subquery's own table, and every count returns 0 without erroring.
   const rows = await db
     .select({
       id: brokers.id,
@@ -46,15 +49,15 @@ export async function listTeam(db: Db): Promise<TeamMemberRow[]> {
       inviteAcceptedAt: brokers.inviteAcceptedAt,
       activeDeals: sql<number>`(
         SELECT count(*)::int FROM ${deals} d
-         WHERE d.assigned_to = ${brokers.id} AND d.status = 'active'
+         WHERE d.assigned_to = brokers.id AND d.status = 'active'
       )`,
       fundedDeals: sql<number>`(
         SELECT count(*)::int FROM ${deals} d
-         WHERE d.assigned_to = ${brokers.id} AND d.status = 'funded'
+         WHERE d.assigned_to = brokers.id AND d.status = 'funded'
       )`,
       fundedVolume: sql<string>`(
         SELECT COALESCE(sum(d.mortgage_amount), 0)::text FROM ${deals} d
-         WHERE d.assigned_to = ${brokers.id} AND d.status = 'funded'
+         WHERE d.assigned_to = brokers.id AND d.status = 'funded'
       )`,
     })
     .from(brokers)
@@ -206,7 +209,7 @@ export async function fundedWithoutCommission(db: Db) {
     .where(
       and(
         eq(deals.status, 'funded'),
-        sql`NOT EXISTS (SELECT 1 FROM ${dealCommissions} c WHERE c.deal_id = ${deals.id})`,
+        sql`NOT EXISTS (SELECT 1 FROM ${dealCommissions} c WHERE c.deal_id = deals.id)`,
       ),
     )
     .orderBy(desc(deals.fundedAt));

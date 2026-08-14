@@ -338,6 +338,65 @@ describe('row-level security', { skip: !CONNECTION ? 'UWA_TEST_DATABASE_URL not 
     });
   });
 
+  /**
+   * Correlated subqueries must reference the OUTER table by a qualified name.
+   *
+   * Drizzle renders an interpolated `${table.column}` inside a sql`` projection
+   * UNQUALIFIED. In a correlated subquery whose inner table also has a column
+   * of that name — which is always true for `id` — Postgres resolves it against
+   * the INNER table. The predicate becomes `inner.fk = inner.id`, which is
+   * never true, so every count silently returns 0 instead of erroring.
+   *
+   * That shipped: every badge on the deals board read zero while the data was
+   * there. This asserts the pattern produces real numbers.
+   */
+  it('counts correlated subqueries against the outer row, not the inner one', async () => {
+    const setup = await as<{ id: string }>(
+      { type: 'system' },
+      `INSERT INTO clients (email, full_name, username, password_hash)
+       VALUES ('rls-count@example.test', 'Count Test', 'ccount_rlstest', 'scrypt$1$1$1$x$y')
+       RETURNING id`,
+    );
+    const clientId = setup.rows[0]!.id;
+
+    for (const name of ['one.pdf', 'two.pdf', 'three.pdf']) {
+      await as(
+        { type: 'system' },
+        `INSERT INTO documents (client_id, drive_file_id, file_name, mime_type, size_bytes, status)
+         VALUES ($1, $2, $3, 'application/pdf', 1, 'in_review')`,
+        [clientId, `drive-${name}`, name],
+      );
+    }
+
+    // Exactly the shape the application uses.
+    const counted = await as<{ n: number }>(
+      { type: 'system' },
+      `SELECT (
+         SELECT count(*)::int FROM documents d
+          WHERE d.client_id = clients.id AND d.status = 'in_review'
+       ) AS n
+       FROM clients WHERE clients.id = $1`,
+      [clientId],
+    );
+
+    assert.equal(counted.rows[0]!.n, 3, 'correlated count came back wrong — check qualification');
+
+    // And the broken form, to prove the test would catch a regression.
+    const broken = await as<{ n: number }>(
+      { type: 'system' },
+      `SELECT (
+         SELECT count(*)::int FROM documents d
+          WHERE d.client_id = "id" AND d.status = 'in_review'
+       ) AS n
+       FROM clients WHERE clients.id = $1`,
+      [clientId],
+    );
+
+    assert.equal(broken.rows[0]!.n, 0, 'the unqualified form is expected to return 0');
+
+    await as({ type: 'system' }, `DELETE FROM clients WHERE id = $1`, [clientId]);
+  });
+
   it('keeps credential tables away from a client actor entirely', async () => {
     // brokers.password_hash and the session token hashes. Neither is reachable
     // through a route today; the point is that it stays true if one ever is.

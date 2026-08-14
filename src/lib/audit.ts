@@ -41,6 +41,8 @@ export type AuditAction =
   | 'team.updated'
   | 'commission.recorded'
   | 'deals.imported'
+  | 'lender_product.changed'
+  | 'deal.submission_exported'
   | 'deal.assigned'
   | 'deal.locked'
   | 'deal.unlocked'
