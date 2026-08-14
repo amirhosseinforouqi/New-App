@@ -16,6 +16,7 @@ import {
   maturityPipeline,
 } from '@/lib/team/queries';
 import { env } from '@/lib/env';
+import { CommissionForm } from './commission-form';
 import { TeamPanel } from './team-panel';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +30,11 @@ export default async function ReportsPage() {
   if (user.kind !== 'broker') redirect('/dashboard');
 
   const [me] = await asSystem(async (db) =>
-    db.select({ role: brokers.role }).from(brokers).where(eq(brokers.id, user.id)).limit(1),
+    db
+      .select({ role: brokers.role, brokerageName: brokers.brokerageName })
+      .from(brokers)
+      .where(eq(brokers.id, user.id))
+      .limit(1),
   );
 
   const isOwner = me?.role === 'owner';
@@ -191,6 +196,21 @@ export default async function ReportsPage() {
                   {data.unclaimed.length > 4 && '…'}
                 </div>
               )}
+
+              <CommissionForm
+                deals={data.unclaimed.map((deal) => ({
+                  id: deal.id,
+                  reference: deal.reference,
+                  mortgageAmount:
+                    deal.mortgageAmount === null ? null : Number(deal.mortgageAmount),
+                }))}
+                team={data.team.map((member) => ({
+                  id: member.id,
+                  fullName: member.fullName,
+                  commissionSplitPercent: member.commissionSplitPercent,
+                }))}
+                brokerageName={me?.brokerageName ?? 'Brokerage'}
+              />
             </section>
           )}
 
