@@ -18,6 +18,7 @@ import {
   documentRequests,
   documents,
   downPaymentSources,
+  externalConnections,
   identityVerifications,
   lenderProducts,
   lenderSubmissions,
@@ -26,6 +27,11 @@ import {
 } from '@/db/schema';
 import { expandTemplate } from '@/lib/compliance/templates';
 import { screenForCrossSell, type CrossSellContext } from '@/lib/crosssell/engine';
+import {
+  summariseConnections,
+  type ConnectionRecord,
+  type ConnectionSummary,
+} from '@/lib/deals/connections';
 import { dealRatios, num, type DealDetail } from '@/lib/deals/queries';
 import {
   compareOptions,
@@ -56,6 +62,8 @@ export interface Workspace {
     products: Array<{ id: string; name: string; rate: number }>;
   }>;
   lastSubmittedAt: Date | null;
+  /** Bank / CRA / bureau verification records, per kind. */
+  connections: ConnectionSummary[];
   /** Saved comparisons, with how far the live table has moved since each. */
   scenarios: Array<{
     id: string;
@@ -245,6 +253,25 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
       .values(),
   ];
 
+  const connectionRows = await db
+    .select({
+      id: externalConnections.id,
+      clientId: externalConnections.clientId,
+      kind: externalConnections.kind,
+      provider: externalConnections.provider,
+      status: externalConnections.status,
+      detail: externalConnections.detail,
+      requestedAt: externalConnections.requestedAt,
+      completedAt: externalConnections.completedAt,
+    })
+    .from(externalConnections)
+    .where(eq(externalConnections.dealId, deal.id));
+
+  const connections = summariseConnections(
+    connectionRows satisfies ConnectionRecord[],
+    borrowerIds,
+  );
+
   const identityByClient = new Map(borrowerIds.map((id) => [id, false]));
   for (const row of identity) identityByClient.set(row.clientId, true);
 
@@ -361,6 +388,7 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
     consentByClient,
     lenderOptions,
     lastSubmittedAt: lastSubmission?.submittedAt ?? null,
+    connections,
     scenarios: savedScenarios,
   };
 }

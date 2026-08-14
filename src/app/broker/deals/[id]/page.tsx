@@ -12,6 +12,7 @@ import { calculateInsurance, minimumDownPayment } from '@/lib/finance/mortgage';
 import { calculateLandTransferTax, type Province } from '@/lib/finance/land-transfer-tax';
 import { getStage, STAGES } from '@/lib/pipeline/stages';
 import { RatioPanel } from './ratio-panel';
+import { ConnectionsPanel } from './connections-panel';
 import { DownPaymentPanel } from './down-payment-panel';
 import { ScenarioPanel } from './scenario-panel';
 import { SubmitControl } from './submit-control';
@@ -177,6 +178,24 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             />
 
             <DownPaymentPanel sources={workspace.downPayment} required={downPayment} />
+
+            <ConnectionsPanel
+              dealId={deal.id}
+              kinds={workspace.connections.map((summary) => ({
+                ...summary.kind,
+                records: [...summary.byClient.values()].flat().map((record) => ({
+                  ...record,
+                  requestedAt: record.requestedAt.toISOString(),
+                  completedAt: record.completedAt?.toISOString() ?? null,
+                })),
+                outstandingFor: summary.outstandingFor,
+              }))}
+              borrowers={detail.borrowers.map((borrower) => ({
+                clientId: borrower.clientId,
+                fullName: borrower.fullName,
+                consentSigned: workspace.consentByClient.get(borrower.clientId) ?? false,
+              }))}
+            />
 
             <SubmitControl
               dealId={deal.id}
