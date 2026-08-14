@@ -43,6 +43,8 @@ export type AuditAction =
   | 'deals.imported'
   | 'lender_product.changed'
   | 'deal.submission_exported'
+  | 'scenario.saved'
+  | 'scenario.deleted'
   | 'deal.assigned'
   | 'deal.locked'
   | 'deal.unlocked'

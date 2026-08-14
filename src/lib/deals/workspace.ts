@@ -22,10 +22,18 @@ import {
   lenderProducts,
   lenderSubmissions,
   lenders,
+  scenarios,
 } from '@/db/schema';
 import { expandTemplate } from '@/lib/compliance/templates';
 import { screenForCrossSell, type CrossSellContext } from '@/lib/crosssell/engine';
 import { dealRatios, num, type DealDetail } from '@/lib/deals/queries';
+import {
+  compareOptions,
+  driftFromCurrent,
+  type RateDrift,
+  type ScenarioComparison,
+  type ScenarioSnapshot,
+} from '@/lib/deals/scenarios';
 import { evaluateSubmission, type SubmissionReadiness } from '@/lib/deals/validation';
 import { dealProfile, rankProducts, type LenderProduct, type ProductMatch } from '@/lib/lenders/matching';
 
@@ -47,6 +55,15 @@ export interface Workspace {
     products: Array<{ id: string; name: string; rate: number }>;
   }>;
   lastSubmittedAt: Date | null;
+  /** Saved comparisons, with how far the live table has moved since each. */
+  scenarios: Array<{
+    id: string;
+    name: string;
+    createdAt: Date;
+    snapshot: ScenarioSnapshot;
+    comparison: ScenarioComparison;
+    drift: RateDrift[];
+  }>;
 }
 
 export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspace> {
@@ -167,6 +184,46 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
     .where(eq(lenderSubmissions.dealId, deal.id))
     .orderBy(desc(lenderSubmissions.submittedAt))
     .limit(1);
+
+  const scenarioRows = await db
+    .select({
+      id: scenarios.id,
+      name: scenarios.name,
+      createdAt: scenarios.createdAt,
+      snapshot: scenarios.snapshot,
+    })
+    .from(scenarios)
+    .where(eq(scenarios.dealId, deal.id))
+    .orderBy(desc(scenarios.createdAt));
+
+  // Drift is measured against every product, active or not — a scenario built
+  // on a product that has since been retired needs to say so, and filtering
+  // retired ones out here would make it look merely deleted.
+  const allProducts = await db
+    .select({
+      id: lenderProducts.id,
+      postedRate: lenderProducts.postedRate,
+      isActive: lenderProducts.isActive,
+    })
+    .from(lenderProducts);
+
+  const currentRates = allProducts.map((product) => ({
+    id: product.id,
+    postedRate: Number(product.postedRate),
+    isActive: product.isActive,
+  }));
+
+  const savedScenarios = scenarioRows.map((row) => {
+    const snapshot = row.snapshot as ScenarioSnapshot;
+    return {
+      id: row.id,
+      name: row.name,
+      createdAt: row.createdAt,
+      snapshot,
+      comparison: compareOptions(snapshot.options ?? []),
+      drift: driftFromCurrent(snapshot, currentRates),
+    };
+  });
 
   const lenderOptions = [...
     products
@@ -298,6 +355,7 @@ export async function loadWorkspace(db: Db, detail: DealDetail): Promise<Workspa
     consentByClient,
     lenderOptions,
     lastSubmittedAt: lastSubmission?.submittedAt ?? null,
+    scenarios: savedScenarios,
   };
 }
 

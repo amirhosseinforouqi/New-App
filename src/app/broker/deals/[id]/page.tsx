@@ -13,6 +13,7 @@ import { calculateLandTransferTax, type Province } from '@/lib/finance/land-tran
 import { getStage, STAGES } from '@/lib/pipeline/stages';
 import { RatioPanel } from './ratio-panel';
 import { DownPaymentPanel } from './down-payment-panel';
+import { ScenarioPanel } from './scenario-panel';
 import { SubmitControl } from './submit-control';
 import {
   CompliancePanel,
@@ -152,6 +153,28 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             />
 
             <LenderPanel matches={workspace.matches} />
+
+            <ScenarioPanel
+              dealId={deal.id}
+              scenarios={workspace.scenarios.map((scenario) => ({
+                id: scenario.id,
+                name: scenario.name,
+                createdAt: scenario.createdAt.toISOString(),
+                options: scenario.snapshot.options ?? [],
+                cheapestOverTerm: scenario.comparison.cheapestOverTerm,
+                lowestPayment: scenario.comparison.lowestPayment,
+                spreadOverTerm: scenario.comparison.spreadOverTerm,
+                termsDiffer: scenario.comparison.termsDiffer,
+                termYears: scenario.comparison.termYears,
+                drift: scenario.drift,
+              }))}
+              products={workspace.matches.map((match) => ({
+                id: match.product.id,
+                label: `${match.product.lenderName} ${match.product.name}`,
+                rate: match.product.postedRate,
+                fits: match.fits,
+              }))}
+            />
 
             <DownPaymentPanel sources={workspace.downPayment} required={downPayment} />
 
