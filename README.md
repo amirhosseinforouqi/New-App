@@ -259,11 +259,16 @@ belongs in your privacy notice. The agent layer is entirely optional — leave
 | | |
 |---|---|
 | Borrower | Bilingual tiered intake with conditional branching · secure document portal · persistent messaging · live stage tracker · multi-deal switcher · electronic consent signing with hashed documents · payment, affordability and closing-cost calculators · two-factor authentication · installable app (PWA) |
-| Broker | Kanban deals pipeline with drag, assignment, lock, archive and copy · GDS/TDS/LTV at the stress-test rate · lender product matching with a reason for every rejection · submission-readiness gating · FINTRAC compliance checklists with per-borrower identity records · cross-sell screening · commission splitting to the cent · team roles and invitations · referral links with attribution and conversion |
+| Broker | Kanban deals pipeline with drag, assignment, lock, archive and copy · GDS/TDS/LTV at the stress-test rate · lender and product table with inline rate editing · product matching with a reason for every rejection · saved side-by-side comparisons that freeze their rates · lender submission package export · configurable submission rules · FINTRAC compliance checklists with per-borrower identity records · down-payment source tracking · bank/CRA/bureau verification records · cross-sell screening · commission entry and splitting to the cent · team roles and invitations · referral links with attribution and conversion |
 | Automation | Inbound email → client profile · Claude document classification · checklist generation · down-payment statement auditing · document reminders (email, plus an SMS adapter) · renewal mining · signed webhooks |
 | Integration | Public API (`/api/v1`) with scoped keys · webhooks for eight events · CSV import of a legacy back catalogue · Google Drive document storage |
 
-236 tests, including a row-level-security suite that queries with no `WHERE` clause and
+Two rules cannot be configured: FINTRAC identity verification and the borrower's signed
+credit-pull consent are obligations rather than house style, so they are locked on in the
+engine, in the save function and at the API. Everything else about where the submission bar
+sits is the brokerage's to set.
+
+274 tests, including a row-level-security suite that queries with no `WHERE` clause and
 asserts the database still returns only the caller's rows.
 
 **Blocked on a commercial relationship, not on engineering.** A credit bureau pull needs an
@@ -277,9 +282,17 @@ Twilio account — the adapter is written and switches on with three environment
 Native iOS and Android builds need App Store and Play accounts; the PWA installs to the home
 screen and launches standalone today.
 
-The database is shaped to receive all of them: `borrower_liabilities.source` lets
-bureau-parsed debts sit beside self-declared ones, `external_connections` records a borrower
-authorising a provider, `lender_submissions.method` already distinguishes an export from an
+The database is shaped to receive all of them, and the seams are visible in the product
+rather than hidden in the schema. The deal page has a **Bank, CRA and bureau** panel that
+records what was asked for and what came back, with `provider: 'manual'` as a first-class
+value — because manual is how this genuinely works today. Each entry states both routes: what
+a brokerage does now, and what buying an integration would replace. CRA is marked as having
+nothing to buy, because it has no API a brokerage can call; inventing a vendor there would be
+worse than the gap.
+
+When an agreement exists, `provider` becomes the vendor's name and `external_connections.
+external_ref` its request id. `borrower_liabilities.source` lets bureau-parsed debts sit
+beside self-declared ones, `lender_submissions.method` already distinguishes an export from an
 API call, and every ratio in `src/lib/finance` recalculates unchanged. None can be built
 without the account behind it, and faking a regulated feature in a mortgage application is
 worse than not having it — a portal that displays a credit score it never pulled is a

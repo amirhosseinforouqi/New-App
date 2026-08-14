@@ -66,26 +66,38 @@ const bodySchema = z.discriminatedUnion('action', [
   }),
 ]);
 
-async function requireOwner() {
+/**
+ * Two distinct refusals, kept distinct.
+ *
+ * An agent needs to know the restriction is by role so they can ask an owner.
+ * A borrower should not be told that a lender table exists or who administers
+ * it — to them this endpoint simply is not theirs.
+ */
+async function requireOwner(): Promise<
+  { ok: true; user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>> } | { ok: false; error: string }
+> {
   const user = await getCurrentUser();
-  if (!user || user.kind !== 'broker') return null;
+  if (!user || user.kind !== 'broker') return { ok: false, error: 'Not authorised.' };
 
   const [row] = await asSystem(async (db) =>
     db.select({ role: brokers.role }).from(brokers).where(eq(brokers.id, user.id)).limit(1),
   );
 
   // Compliance managers can see everything but do not set commercial terms.
-  return row?.role === 'owner' ? user : null;
+  if (row?.role !== 'owner') {
+    return { ok: false, error: 'Only the brokerage owner can change the lender table.' };
+  }
+
+  return { ok: true, user };
 }
 
 export async function POST(request: Request) {
-  const user = await requireOwner();
-  if (!user) {
-    return NextResponse.json(
-      { error: 'Only the brokerage owner can change the lender table.' },
-      { status: 403 },
-    );
+  const auth = await requireOwner();
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: 403 });
   }
+
+  const { user } = auth;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
