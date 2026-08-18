@@ -139,7 +139,11 @@ export function ScenarioPanel({
 
       {products.length < 2 && (
         <p className="field-hint mt-2">
-          Needs at least two products in your table. Add them under <strong>Lenders</strong>.
+          Needs at least two products in your table. Add them in{' '}
+          <a href="/settings/lenders" className="underline">
+            lender settings
+          </a>
+          .
         </p>
       )}
 
